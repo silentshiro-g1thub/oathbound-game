@@ -4,7 +4,10 @@ extends CharacterBody3D
 @export var move_speed: float = 7.0
 @export var jump_velocity: float = 4.5
 @export var mouse_sensitivity: float = 0.002
-@export var sprint_speed: float = 100.0
+@export var sprint_speed: float = 11.5
+
+@export var ground_acceleration: float = 25.0
+@export var ground_deceleration: float = 20.0
 
 # VARIABLE JUMP HEIGHT SETITNGS
 @export var short_hop_velocity: float = 2.5
@@ -110,13 +113,31 @@ func _physics_process(delta: float) -> void:
 	
 	# Apply horizontal movement
 	if not direction.is_zero_approx():
-		# Move at the set speed in the given direction
-		velocity.x = direction.x * current_speed
-		velocity.z = direction.z * current_speed
+		# Accelerate in the given direction
+		velocity.x = move_toward(
+			velocity.x,
+			direction.x * current_speed,
+			ground_acceleration * delta
+		)
+		
+		velocity.z = move_toward(
+			velocity.z,
+			direction.z * current_speed,
+			ground_acceleration * delta
+		)
 	else: 
 		# Gradually reduce horizontal velocity when no direction is pressed
-		velocity.x = move_toward(velocity.x, 0.0, move_speed)
-		velocity.z = move_toward(velocity.z, 0.0, move_speed)
+		velocity.x = move_toward(
+			velocity.x,
+			direction.x * current_speed,
+			ground_deceleration * delta
+		)
+
+		velocity.z = move_toward(
+			velocity.z,
+			0.0,
+			ground_deceleration * delta
+		)
 	
 	# Apply velocity and resolve collisions with the environment
 	move_and_slide()
