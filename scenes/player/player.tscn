@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://vq0ffduaoidq"]
+
+[node name="Player" type="CharacterBody3D" unique_id=864548478]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=516172410]
+
+[node name="Head" type="Node3D" parent="." unique_id=192975969]
+
+[node name="Camera3D" type="Camera3D" parent="Head" unique_id=951744470]
