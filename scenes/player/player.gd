@@ -25,7 +25,7 @@ const MIN_LOOK_ANGLE: float = -89.0
 const MAX_LOOK_ANGLE: float = 89.0
 
 @onready var head: Node3D = $Head
-
+@onready var animation_play = $"Head/Camera3D/Manurhin MR93/AnimationPlayer"
 # INITIALIZATION
 func _ready() -> void:
 	# Capture mouse when the game launches
@@ -44,6 +44,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(MIN_LOOK_ANGLE),
 			deg_to_rad(MAX_LOOK_ANGLE)
 		)
+	if Input.is_action_just_pressed("Shoot") and animation_play.current_animation != "Shot":
+		play_shoot_effects()
 		
 	# Release the mouse when cancel key is triggered
 	if event.is_action_pressed("ui_cancellation"):
@@ -138,7 +140,16 @@ func _physics_process(delta: float) -> void:
 			0.0,
 			ground_deceleration * delta
 		)
-	
+	if animation_play.current_animation == "Shot":
+		pass
+	elif input_dir != Vector2.ZERO and is_on_floor():
+		animation_play.play("move")
+	else:
+		animation_play.play("Idle")
 	# Apply velocity and resolve collisions with the environment
 	move_and_slide()
 	
+func play_shoot_effects():
+		animation_play.stop()
+		animation_play.play("Shot")
+		
