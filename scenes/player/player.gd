@@ -108,9 +108,9 @@ func _physics_process(delta: float) -> void:
 	).normalized()
 	
 	# Sprint only while the sprint action is held and the player is moving
-	var current_speed := move_speed
+	var current_speed : float = move_speed
 	
-	if Input.is_action_just_pressed("sprint") and not input_dir.is_zero_approx():
+	if Input.is_action_pressed("sprint") and not input_dir.is_zero_approx():
 		current_speed = sprint_speed
 	
 	# Apply horizontal movement
@@ -131,7 +131,7 @@ func _physics_process(delta: float) -> void:
 		# Gradually reduce horizontal velocity when no direction is pressed
 		velocity.x = move_toward(
 			velocity.x,
-			direction.x * current_speed,
+			0.0,
 			ground_deceleration * delta
 		)
 
@@ -146,6 +146,14 @@ func _physics_process(delta: float) -> void:
 		animation_play.play("move")
 	else:
 		animation_play.play("Idle")
+		
+	print(
+		"Sprint held: ", Input.is_action_pressed("sprint"),
+		" | Target speed: ", current_speed,
+		" | Actual horizontal speed: ",
+		Vector2(velocity.x, velocity.z).length()
+	)
+	
 	# Apply velocity and resolve collisions with the environment
 	move_and_slide()
 	
