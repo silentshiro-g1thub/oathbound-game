@@ -24,13 +24,24 @@ var jump_cut_applied: bool = false
 const MIN_LOOK_ANGLE: float = -89.0
 const MAX_LOOK_ANGLE: float = 89.0
 
+#Animations
 @onready var head: Node3D = $Head
 @onready var animation_play = $"Head/Camera3D/Manurhin MR93/AnimationPlayer"
+@onready var muzzle_flash: Node3D = $"Head/Camera3D/Manurhin MR93/Node3D"
+
+#Guns
+@onready var crosshair = $"../Node2D/TextureRect"
+@onready var crosshair_hit = $"../Node2D/TextureRect2"
+@onready var aim_ray =$Head/Camera3D/RayCast3D
 # INITIALIZATION
 func _ready() -> void:
 	# Capture mouse when the game launches
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	
+	muzzle_flash.visible = false
+	crosshair.position.x = get_viewport().size.x/2 -32
+	crosshair.position.y = get_viewport().size.y/2-32
+	crosshair_hit.position.x = get_viewport().size.x/2 -32
+	crosshair_hit.position.y = get_viewport().size.y/2-32
 # MOUSE TRACKING AND INPUT EVENTS & EDGE CASES
 func _unhandled_input(event: InputEvent) -> void:
 	# Rotate player horizontally when mouse moves
@@ -160,4 +171,10 @@ func _physics_process(delta: float) -> void:
 func play_shoot_effects():
 		animation_play.stop()
 		animation_play.play("Shot")
+		show_muzzle_flash()
 		
+func show_muzzle_flash() -> void:
+	muzzle_flash.visible = true
+	muzzle_flash.rotation.z = randf_range(0.0, TAU) # random spin so it looks different each shot
+	await get_tree().create_timer(0.08).timeout
+	muzzle_flash.visible = false
