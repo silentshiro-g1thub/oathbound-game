@@ -195,11 +195,13 @@ environment = SubResource("Environment_sugp2")
 [node name="Node2D" type="Node2D" parent="." unique_id=60421905]
 
 [node name="TextureRect" type="TextureRect" parent="Node2D" unique_id=854168762]
+mouse_filter = 2
 offset_right = 40.0
 offset_bottom = 40.0
 texture = ExtResource("1_tbgi4")
 
 [node name="TextureRect2" type="TextureRect" parent="Node2D" unique_id=834360040]
+mouse_filter = 2
 offset_right = 40.0
 offset_bottom = 40.0
 texture = ExtResource("2_tefeu")
@@ -238,7 +240,6 @@ shape = SubResource("CapsuleShape3D_sgp6g")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 
 [node name="Camera3D" type="Camera3D" parent="Player/Head" unique_id=165562599]
-transform = Transform3D(0.99925, 0.006405959, 0.038189895, 0, 0.9862218, -0.16542847, -0.038723435, 0.16530441, 0.9854821, -1.4901161e-08, 1.1920929e-07, 0)
 current = true
 
 [node name="Manurhin MR93" parent="Player/Head/Camera3D" unique_id=1766926507 instance=ExtResource("2_0wfyh")]
