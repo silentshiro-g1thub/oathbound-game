@@ -24,13 +24,24 @@ var jump_cut_applied: bool = false
 const MIN_LOOK_ANGLE: float = -89.0
 const MAX_LOOK_ANGLE: float = 89.0
 
+#Animations
 @onready var head: Node3D = $Head
+@onready var animation_play = $"Head/Camera3D/Manurhin MR93/AnimationPlayer"
+@onready var muzzle_flash: Node3D = $"Head/Camera3D/Manurhin MR93/Node3D"
 
+#Guns
+@onready var crosshair = $"../Node2D/TextureRect"
+@onready var crosshair_hit = $"../Node2D/TextureRect2"
+@onready var aim_ray =$Head/Camera3D/RayCast3D
 # INITIALIZATION
 func _ready() -> void:
 	# Capture mouse when the game launches
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	
+	muzzle_flash.visible = false
+	crosshair.position.x = get_viewport().size.x/2 -32
+	crosshair.position.y = get_viewport().size.y/2-32
+	crosshair_hit.position.x = get_viewport().size.x/2 -32
+	crosshair_hit.position.y = get_viewport().size.y/2-32
 # MOUSE TRACKING AND INPUT EVENTS & EDGE CASES
 func _unhandled_input(event: InputEvent) -> void:
 	# Rotate player horizontally when mouse moves
@@ -44,6 +55,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(MIN_LOOK_ANGLE),
 			deg_to_rad(MAX_LOOK_ANGLE)
 		)
+	if Input.is_action_just_pressed("Shoot") and animation_play.current_animation != "Shot":
+		play_shoot_effects()
 		
 	# Release the mouse when cancel key is triggered
 	if event.is_action_pressed("ui_cancellation"):
@@ -138,6 +151,12 @@ func _physics_process(delta: float) -> void:
 			0.0,
 			ground_deceleration * delta
 		)
+	if animation_play.current_animation == "Shot":
+		pass
+	elif input_dir != Vector2.ZERO and is_on_floor():
+		animation_play.play("move")
+	else:
+		animation_play.play("Idle")
 		
 	print(
 		"Sprint held: ", Input.is_action_pressed("sprint"),
@@ -149,3 +168,13 @@ func _physics_process(delta: float) -> void:
 	# Apply velocity and resolve collisions with the environment
 	move_and_slide()
 	
+func play_shoot_effects():
+		animation_play.stop()
+		animation_play.play("Shot")
+		show_muzzle_flash()
+		
+func show_muzzle_flash() -> void:
+	muzzle_flash.visible = true
+	muzzle_flash.rotation.z = randf_range(0.0, TAU) # random spin so it looks different each shot
+	await get_tree().create_timer(0.08).timeout
+	muzzle_flash.visible = false
