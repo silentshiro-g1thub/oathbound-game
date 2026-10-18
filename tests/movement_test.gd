@@ -120,6 +120,7 @@ func _run() -> void:
 	await test_edges()
 	await test_physics_rates()
 	await test_launch_changes()
+	await test_crouch_and_strafe()
 	await test_main_scene()
 	for action in InputMap.get_actions():
 		Input.action_release(action)
@@ -131,7 +132,7 @@ func test_slide() -> void:
 	await reset_player()
 	Input.action_press("slide")
 	await tick()
-	check(not player.is_crouched, "slide rejects insufficient momentum")
+	check(player.is_crouched and player.movement_state != player.MovementState.SLIDING, "Ctrl crouches without sufficient slide momentum")
 	await reset_player()
 	Input.action_press("move_forward")
 	Input.action_press("sprint")
@@ -165,6 +166,33 @@ func test_slide() -> void:
 
 func test_dash() -> void:
 	await reset_player()
+	player.dash_speed = 20.0
+	Input.action_press("dash")
+	await tick(5)
+	var previous_distance := -player.position.z
+	await reset_player()
+	Input.action_press("dash")
+	await tick(5)
+	var short_distance := -player.position.z
+	check(player._horizontal_velocity().length() > 19.9, "dash exit keeps speed instead of instantly stopping")
+	await tick()
+	check(player._horizontal_velocity().length() > 22 and player._horizontal_velocity().length() < 23, "dash recovery slows progressively on the next frame")
+	check(absf(short_distance / previous_distance - 1.15) < 0.01, "dash burst covers 15 percent more distance")
+	await tick(65)
+	check(-player.position.z > short_distance and -player.position.z - short_distance > 10.0 and -player.position.z - short_distance < 12.0 and player._horizontal_velocity().length() < 0.01, "idle dash carries momentum then settles after one second")
+	await reset_player()
+	Input.action_press("move_left")
+	Input.action_press("move_right")
+	Input.action_press("dash")
+	await tick(65)
+	check(player._horizontal_velocity().length() < 0.01, "opposing movement inputs do not preserve dash drift")
+	await reset_player()
+	Input.action_press("move_forward")
+	Input.action_press("sprint")
+	Input.action_press("dash")
+	await tick(65)
+	check(absf(player._horizontal_velocity().length() - player.sprint_speed) < 0.01, "dash hands back to sprint speed when sprint is held")
+	await reset_player()
 	player.dash_follows_aim = false
 	Input.action_press("dash")
 	await tick()
@@ -173,7 +201,7 @@ func test_dash() -> void:
 	await tick(2)
 	check(player.velocity.z < -19.9, "ordinary movement cannot overwrite dash")
 	await tick(10)
-	check(player.movement_state != player.MovementState.DASHING and player._horizontal_velocity().length() > 18.0, "dash expires and preserves exit momentum")
+	check(player.movement_state != player.MovementState.DASHING and player._horizontal_velocity().length() > player.move_speed and player._horizontal_velocity().length() < player.dash_speed, "dash continues carrying speed during recovery")
 	Input.action_release("dash")
 	await tick()
 	Input.action_press("dash")
@@ -266,6 +294,19 @@ func test_wall_jump() -> void:
 	wall.free()
 
 func test_double_jump() -> void:
+	var heights: Array[float] = []
+	for launch_speed in [4.5, 4.95]:
+		await reset_player(Vector3(0, 8, 0))
+		player.velocity = Vector3.ZERO
+		player.double_jump_velocity = launch_speed
+		var start_y := player.position.y
+		var peak_y := start_y
+		Input.action_press("jump")
+		for frame in 40:
+			await tick()
+			peak_y = maxf(peak_y, player.position.y)
+		heights.append(peak_y - start_y)
+	check(heights[1] / heights[0] > 1.15 and heights[1] / heights[0] < 1.25, "extra jump gains between 15 and 25 percent actual height")
 	await reset_player()
 	Input.action_press("jump")
 	await tick(4)
@@ -373,6 +414,9 @@ func test_physics_rates() -> void:
 		distances.append(-player.position.z)
 		check(absf(player._horizontal_velocity().length() - 7.0) < 0.01, "walk reaches same target at %d physics ticks" % rate)
 		await reset_player()
+		# At 120 Hz, three reset frames do not reach the floor from spawn height.
+		await tick(10)
+		check(player.is_on_floor(), "jump-rate comparison starts grounded at %d Hz" % rate)
 		Input.action_press("jump")
 		var peak: float = 0.0
 		for i in rate:
@@ -434,20 +478,22 @@ func test_launch_changes() -> void:
 		player.head.rotation.x = deg_to_rad(pitch)
 		player.rotation.y = 0.7
 		var aim: Vector3 = -player.camera.global_basis.z
-		Input.action_press("move_back")
+		Input.action_press("move_forward")
 		Input.action_press("dash")
 		await tick()
-		check(player.velocity.normalized().dot(aim) > 0.999 and absf(player.velocity.length()-20) < 0.01, "dash follows normalized camera aim at %.0f degrees" % pitch)
+		check(player.velocity.normalized().dot(aim) > 0.999 and absf(player.velocity.length()-23) < 0.01, "dash follows normalized camera aim at %.0f degrees" % pitch)
 	await reset_player()
 	player.head.rotation.x = deg_to_rad(89)
 	Input.action_press("dash")
 	await tick(12)
-	check(player.velocity.y > 19 and player.position.y > 3, "upward dash launches and retains lift after exit")
+	check(player.velocity.y <= 0 and player.position.y > 1.0 and player.position.y < 2.1, "upward dash ends without continued rocket lift")
 	Input.action_press("jump")
 	await tick()
 	Input.action_release("jump")
 	await tick()
-	check(player.velocity.y > 18, "jump and release do not cut inherited dash lift")
+	check(player.velocity.y > 0 and player.velocity.y <= player.short_hop_velocity, "extra jump after dash obeys normal jump release")
+	await reset_player(Vector3(0, 20, 0))
+	Input.action_press("dash")
 	await tick(50)
 	Input.action_release("dash")
 	await tick()
@@ -459,8 +505,10 @@ func test_launch_changes() -> void:
 	await reset_player(Vector3(0, 8, 0))
 	player.velocity.z = -28
 	Input.action_press("dash")
-	await tick(12)
-	check(player.velocity.z < -27.9, "dash retains speed above its base speed")
+	await tick()
+	check(absf(player.velocity.length() - player.dash_speed) < 0.01, "incoming speed cannot lengthen the dash burst")
+	await tick(65)
+	check(player._horizontal_velocity().length() < 0.01, "air dash ends without idle horizontal drift even from high incoming speed")
 	await reset_player()
 	var roof := box(Vector3(0, 3, 0), Vector3(8, 0.1, 8))
 	player.head.rotation.x = deg_to_rad(89)
@@ -473,3 +521,51 @@ func test_launch_changes() -> void:
 	Input.action_press("dash")
 	await tick(5)
 	check(player.is_on_floor() and player.position.y >= -0.01, "downward dash collides safely with floor")
+
+func test_crouch_and_strafe() -> void:
+	await reset_player()
+	Input.action_press("slide")
+	await tick(10)
+	check(player.is_crouched and absf(player.body_collision.shape.height - player.crouch_height) < 0.01, "held Ctrl lowers capsule while stationary")
+	Input.action_press("move_forward")
+	Input.action_press("sprint")
+	await tick(30)
+	check(absf(player._horizontal_velocity().length() - player.crouch_speed) < 0.01, "crouch walking stays slow even with sprint")
+	Input.action_release("slide")
+	await tick(2)
+	check(not player.is_crouched, "release Ctrl stands in clear space")
+	await reset_player()
+	Input.action_press("slide")
+	await tick()
+	var roof := box(Vector3(0, 1.4, 0), Vector3(8, 0.2, 8))
+	Input.action_release("slide")
+	await tick(3)
+	check(player.is_crouched, "crouch release cannot stand through ceiling")
+	roof.free()
+	await tick(2)
+	check(not player.is_crouched, "blocked crouch stands once space clears")
+	await reset_player()
+	player.velocity.z = -11.5
+	Input.action_press("slide")
+	await tick(60)
+	check(player.is_crouched and player.movement_state != player.MovementState.SLIDING, "holding Ctrl after slide expires stays crouched")
+	for action in ["move_left", "move_right", "move_back"]:
+		await reset_player(Vector3(0, 8, 0))
+		player.rotation.y = 0.7
+		player.head.rotation.x = deg_to_rad(65)
+		var aim_before: Vector3 = -player.camera.global_basis.z
+		var expected: Vector3 = player.global_basis.z if action == "move_back" else player.global_basis.x * (-1 if action == "move_left" else 1)
+		Input.action_press(action)
+		Input.action_press("dash")
+		await tick()
+		check(player.velocity.normalized().dot(expected) > 0.999 and absf(player.velocity.y) < 0.01, "pitched aim permits horizontal %s dash" % action)
+		check((-player.camera.global_basis.z).is_equal_approx(aim_before), "directional dash does not rotate camera")
+		await tick(4)
+		check((player.movement_state == player.MovementState.DASHING) == (action != "move_back"), "sideways burst lasts longer than forward and backward burst")
+	await reset_player(Vector3(0, 8, 0))
+	player.head.rotation.x = deg_to_rad(45)
+	Input.action_press("move_forward")
+	Input.action_press("move_right")
+	Input.action_press("dash")
+	await tick()
+	check(player.velocity.x > 0 and player.velocity.y > 0 and player.velocity.z < 0 and absf(player.velocity.length()-23) < 0.01, "forward diagonal dash combines strafe and upward aim without speed multiplication")

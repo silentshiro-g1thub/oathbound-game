@@ -1,9 +1,11 @@
 extends CanvasLayer
 ## Read-only movement diagnostics. Attached by the player in debug builds.
-## F3: overlay. Shift+F3: live console log. F4: full console snapshot.
+## F3: basic / advanced / hidden. Shift+F3: live log. F4: advanced snapshot.
 
 const SCREEN_INTERVAL: float = 0.1
 const CONSOLE_INTERVAL: float = 1.0
+enum DisplayMode { HIDDEN, BASIC, ADVANCED }
+var display_mode: DisplayMode = DisplayMode.HIDDEN
 
 var player: CharacterBody3D
 var panel: PanelContainer
@@ -18,15 +20,7 @@ func _ready() -> void:
 	panel = PanelContainer.new()
 	panel.custom_minimum_size = Vector2(440, 0)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var background := StyleBoxFlat.new()
-	background.bg_color = Color(0.025, 0.045, 0.065, 0.94)
-	background.border_color = Color(0.25, 0.85, 0.65, 0.8)
-	background.set_border_width_all(1)
-	background.set_corner_radius_all(6)
-	background.content_margin_left = 14
-	background.content_margin_right = 14
-	background.content_margin_top = 12
-	background.content_margin_bottom = 12
+	var background := StyleBoxEmpty.new()
 	panel.add_theme_stylebox_override("panel", background)
 	add_child(panel)
 	readout = Label.new()
@@ -35,7 +29,9 @@ func _ready() -> void:
 	font.font_names = PackedStringArray(["Consolas", "monospace"])
 	readout.add_theme_font_override("font", font)
 	readout.add_theme_font_size_override("font_size", 14)
-	readout.add_theme_color_override("font_color", Color(0.85, 0.95, 0.92))
+	readout.add_theme_color_override("font_color", Color(1.0, 0.72, 0.22, 0.92))
+	readout.add_theme_color_override("font_outline_color", Color(0.04, 0.025, 0.01, 0.95))
+	readout.add_theme_constant_override("outline_size", 4)
 	panel.add_child(readout)
 	panel.hide()
 	panel.resized.connect(_place_panel)
@@ -52,7 +48,8 @@ func _input(event: InputEvent) -> void:
 			console_elapsed = 0.0
 			print("[OATHBOUND DEV] Live console logging %s (Shift+F3 to toggle)." % ("ON" if console_logging else "OFF"))
 		else:
-			panel.visible = not panel.visible
+			display_mode = ((display_mode + 1) % DisplayMode.size()) as DisplayMode
+			panel.visible = display_mode != DisplayMode.HIDDEN
 		if panel.visible:
 			_refresh_screen()
 		set_process(panel.visible or console_logging)
@@ -76,7 +73,8 @@ func _process(delta: float) -> void:
 				_yes_no(player.is_on_floor()), player.extra_jumps_remaining, player.dash_cooldown_remaining])
 
 func _refresh_screen() -> void:
-	readout.text = snapshot_text()
+	readout.text = basic_text() if display_mode == DisplayMode.BASIC else snapshot_text()
+	panel.reset_size()
 	_place_panel()
 
 func _place_panel() -> void:
@@ -85,7 +83,26 @@ func _place_panel() -> void:
 	var panel_size := panel.get_combined_minimum_size()
 	var fit := minf(1.0, minf(maxf(1.0, viewport_size.x - 24.0) / maxf(1.0, panel_size.x), maxf(1.0, viewport_size.y - 24.0) / maxf(1.0, panel_size.y)))
 	panel.scale = Vector2.ONE * fit
-	panel.position = Vector2(maxf(12.0, viewport_size.x - panel_size.x * fit - 12.0), 12.0)
+	panel.position = Vector2(12.0, 12.0)
+
+func _network_text() -> String:
+	# No networking telemetry exists yet; never substitute invented zero readings.
+	var offline := not multiplayer.has_multiplayer_peer() or multiplayer.multiplayer_peer is OfflineMultiplayerPeer
+	return "Ping: N/A | Packet loss: N/A (%s)" % ("offline" if offline else "not measured")
+
+func basic_text() -> String:
+	var fps := Engine.get_frames_per_second()
+	return "\n".join(PackedStringArray([
+		"DEV / BASIC | F3: advanced | F4: snapshot",
+		"FPS: %d | Avg frame: %.1f ms" % [fps, 1000.0 / maxf(1.0, fps)],
+		_network_text(),
+		"State: %s | Crouched: %s" % [_state_name(), _yes_no(player.is_crouched)],
+		"Speed: %.2f | Total: %.2f m/s" % [_horizontal_speed(player.velocity), player.velocity.length()],
+		"Velocity XYZ: %s" % _vector(player.velocity),
+		"Grounded: %s | Extra jump: %d" % [_yes_no(player.is_on_floor()), player.extra_jumps_remaining],
+		"Air dash: %s | Cooldown: %.2fs" % [_yes_no(player.air_dash_available), player.dash_cooldown_remaining],
+		"Console log: %s (Shift+F3)" % ("ON" if console_logging else "OFF"),
+	]))
 
 func snapshot_text() -> String:
 	var real_velocity := player.get_real_velocity()
@@ -98,11 +115,12 @@ func snapshot_text() -> String:
 	var active_dash: float = maxf(0.0, player.dash_remaining) if player.movement_state == player.MovementState.DASHING else 0.0
 	var contact_normal := player.get_wall_normal() if player.is_on_wall() else Vector3.ZERO
 	return "\n".join(PackedStringArray([
-		"OATHBOUND / DEVELOPER CHECK",
-		"F3: hide/show  |  F4: console snapshot",
+		"OATHBOUND / DEVELOPER ADVANCED",
+		"F3: hide  |  F4: full console snapshot",
 		"Shift+F3: live console [%s]" % ("ON" if console_logging else "OFF"),
 		"",
 		"FPS: %d  |  Physics: %d Hz" % [Engine.get_frames_per_second(), Engine.physics_ticks_per_second],
+		_network_text(),
 		"State: %s  |  Crouched: %s" % [_state_name(), _yes_no(player.is_crouched)],
 		"Speed: %.2f m/s  |  Vertical: %+.2f m/s" % [_horizontal_speed(player.velocity), player.velocity.y],
 		"Total speed: %.2f m/s | Air dash: %s" % [player.velocity.length(), _yes_no(player.air_dash_available)],
