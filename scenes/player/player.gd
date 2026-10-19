@@ -32,7 +32,6 @@ const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
 @export var dash_speed: float = 23.0
 @export var dash_duration: float = 0.08
 @export var sideways_dash_duration: float = 0.12
-@export var dash_recovery_duration: float = 1.0
 @export var dash_cooldown: float = 0.8
 @export var dash_follows_aim: bool = true
 
@@ -71,8 +70,6 @@ var dash_remaining: float = 0.0
 var dash_cooldown_remaining: float = 0.0
 var dash_direction: Vector3 = Vector3.ZERO
 var dash_launch_speed: float = 0.0
-var dash_entry_vertical_speed: float = 0.0
-var dash_recovery_remaining: float = 0.0
 var air_dash_available: bool = true
 var wall_normal: Vector3 = Vector3.ZERO
 var wall_budget_remaining: float = 0.0
@@ -291,12 +288,6 @@ func _move_horizontal(direction: Vector3, sprinting: bool, delta: float) -> void
 	var target_speed := sprint_speed if sprinting else move_speed
 	if is_crouched:
 		target_speed = crouch_speed
-	if dash_recovery_remaining > 0.0:
-		# Ease into current input instead of cutting horizontal speed on burst exit.
-		horizontal = horizontal.lerp(direction * target_speed, minf(delta / dash_recovery_remaining, 1.0))
-		dash_recovery_remaining = maxf(0.0, dash_recovery_remaining - delta)
-		_set_horizontal(horizontal)
-		return
 	if is_on_floor() and velocity.y <= 0.0:
 		var acceleration := ground_deceleration if direction.is_zero_approx() else ground_acceleration
 		if not is_crouched and not direction.is_zero_approx() and direction.dot(horizontal) > 0.0:
@@ -328,7 +319,6 @@ func _can_stand() -> bool:
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 func _move_slide(direction: Vector3, delta: float) -> void:
-	dash_recovery_remaining = 0.0
 	slide_remaining -= delta
 	var horizontal := _horizontal_velocity()
 	var speed := maxf(0.0, horizontal.length() - slide_friction * delta)
@@ -339,8 +329,6 @@ func _move_slide(direction: Vector3, delta: float) -> void:
 		movement_state = MovementState.GROUNDED if is_on_floor() else MovementState.AIRBORNE
 
 func _start_dash(direction: Vector3) -> void:
-	dash_recovery_remaining = 0.0
-	dash_entry_vertical_speed = velocity.y
 	var local_input := global_basis.inverse() * direction
 	if dash_follows_aim:
 		var local_direction := global_basis.inverse() * direction
@@ -350,7 +338,7 @@ func _start_dash(direction: Vector3) -> void:
 			# Strafe/retreat without turning the camera. Forward input keeps aim pitch.
 			var forward := -camera.global_basis.z if local_direction.z < 0.0 else -global_basis.z
 			dash_direction = (global_basis.x * local_direction.x - forward * local_direction.z).normalized()
-		dash_launch_speed = dash_speed
+		dash_launch_speed = maxf(dash_speed, velocity.length())
 		jump_cut_applied = true
 		jump_timer = 0.0
 	else:
@@ -358,7 +346,7 @@ func _start_dash(direction: Vector3) -> void:
 		dash_direction = direction.normalized() if not direction.is_zero_approx() else -global_basis.z.normalized()
 		dash_direction.y = 0.0
 		dash_direction = dash_direction.normalized()
-		dash_launch_speed = dash_speed
+		dash_launch_speed = maxf(dash_speed, velocity.length())
 	air_dash_available = false
 	jump_buffer_remaining = 0.0
 	dash_remaining = dash_duration
@@ -384,11 +372,7 @@ func _move_dash(delta: float) -> void:
 		if dash_direction.dot(normal) < -0.1 and (not support or dash_direction.y < -0.05):
 			blocked = true
 	if blocked or dash_remaining <= 0.0:
-		# Keep collision-resolved momentum, then blend back to ordinary movement.
-		dash_recovery_remaining = maxf(dash_recovery_duration, 0.001)
-		if dash_follows_aim:
-			# Resume the jump/fall from before the dash, without its rocket-like lift.
-			velocity.y = dash_entry_vertical_speed if not blocked and not is_on_floor() and not is_on_ceiling() else 0.0
+		# Keep collision-resolved velocity; ordinary movement and gravity take over.
 		movement_state = MovementState.GROUNDED if is_on_floor() else MovementState.AIRBORNE
 
 func _find_wall(direction: Vector3) -> Vector3:
@@ -432,7 +416,6 @@ func _update_wall_contact(direction: Vector3) -> void:
 	coyote_remaining = 0.0
 
 func _move_wall_run(direction: Vector3, delta: float) -> void:
-	dash_recovery_remaining = 0.0
 	wall_budget_remaining = maxf(0.0, wall_budget_remaining - delta)
 	var tangent := direction.slide(wall_normal).normalized()
 	var horizontal := _horizontal_velocity().slide(wall_normal)
