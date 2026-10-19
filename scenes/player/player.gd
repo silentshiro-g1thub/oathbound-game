@@ -486,7 +486,7 @@ func _shot_anim_active() -> bool:
 	# is_playing() is the only reliable "still shooting" check.
 	return animation_play != null and animation_play.is_playing() and animation_play.current_animation == "Shot"
 
-const GUN_RANGE: float = 1000.0
+const GUN_RANGE: float = 10000.0
 
 func _fire_hitscan() -> void:
 	# One-hit kill on debug dummies; ignored against everything else.

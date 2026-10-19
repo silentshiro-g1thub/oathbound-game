@@ -7,7 +7,6 @@ const Player = preload("res://scenes/player/player.tscn")
 const PORT = 9999
 const SPAWN_SPACING: float = 2.0
 var enet_peer = ENetMultiplayerPeer.new()
-var upnp := UPNP.new()
 
 
 func _ready() -> void:
@@ -25,7 +24,7 @@ func _on_button_pressed() -> void:
 	if not multiplayer.peer_connected.is_connected(add_player):
 		multiplayer.peer_connected.connect(add_player)
 	add_player(multiplayer.get_unique_id())
-	upnp_setup()
+	_print_join_info()
 
 func _on_button_2_pressed() -> void:
 	main_menu.hide()
@@ -33,8 +32,15 @@ func _on_button_2_pressed() -> void:
 	var address: String = address_entry.text.strip_edges()
 	if address.is_empty():
 		address = "localhost"
+	var port := PORT
+	if address.contains(":"):
+		# Accept "ip:port" so a manually forwarded port can be used.
+		var parts := address.split(":")
+		address = parts[0]
+		if parts.size() > 1 and parts[1].is_valid_int():
+			port = int(parts[1])
 	enet_peer = ENetMultiplayerPeer.new()
-	enet_peer.create_client(address, PORT)
+	enet_peer.create_client(address, port)
 	multiplayer.multiplayer_peer = enet_peer
 
 func add_player(peer_id):
@@ -68,19 +74,31 @@ func _on_server_disconnected() -> void:
 			child.queue_free()
 	main_menu.show()
 
-func upnp_setup() -> void:
-	# Open UDP 9999 on the router and print the address for a friend to join.
-	# Every step can fail (many routers have UPnP off), so never assert/crash.
-	var discover_result = upnp.discover()
-	if discover_result != UPNP.UPNP_RESULT_SUCCESS:
-		print("UPnP: discover failed (%s). Forward UDP %d to this PC manually." % [discover_result, PORT])
-		return
-	var gateway = upnp.get_gateway()
-	if gateway == null or not gateway.is_valid_gateway():
-		print("UPnP: no valid gateway. Forward UDP %d to this PC manually." % PORT)
-		return
-	var map_result = upnp.add_port_mapping(PORT, PORT, "oathbound", "UDP")
-	if map_result != UPNP.UPNP_RESULT_SUCCESS:
-		print("UPnP: port mapping failed (%s). Forward UDP %d to this PC manually." % [map_result, PORT])
-		return
-	print("UPnP ready. Join Address: %s" % upnp.query_external_address())
+func _print_join_info() -> void:
+	# UPnP is off the table; print the addresses so one can be typed into Join.
+	print("Hosting on UDP %d. Friend types one of these addresses:" % PORT)
+	var lan := _lan_addresses()
+	print("LAN / VPN addresses: %s" % (", ".join(lan) if not lan.is_empty() else "none"))
+	_fetch_public_ip()
+
+func _fetch_public_ip() -> void:
+	# Manual port forwarding still needs the public address it forwards to.
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(func(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+		http.queue_free()
+		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+			return
+		var ip := body.get_string_from_utf8().strip_edges()
+		if not ip.is_empty():
+			print("Public IP: %s (works if UDP %d is forwarded on the router)" % [ip, PORT])
+	)
+	http.request("https://api.ipify.org")
+
+func _lan_addresses() -> Array[String]:
+	var found: Array[String] = []
+	for address in IP.get_local_addresses():
+		if address.contains(":") or address.begins_with("127.") or address.begins_with("169.254."):
+			continue
+		found.append(address)
+	return found
