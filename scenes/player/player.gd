@@ -29,10 +29,10 @@ const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
 @export var camera_height_speed: float = 8.0
 
 @export_group("Dash")
-@export var dash_speed: float = 23.0
+@export var dash_speed: float = 14.5
 @export var dash_duration: float = 0.08
 @export var sideways_dash_duration: float = 0.12
-@export var dash_cooldown: float = 0.8
+@export var dash_cooldown: float = 2.0
 @export var dash_follows_aim: bool = true
 
 @export_group("Wall Run")
