@@ -195,15 +195,15 @@ environment = SubResource("Environment_sugp2")
 [node name="Node2D" type="Node2D" parent="." unique_id=60421905]
 
 [node name="TextureRect" type="TextureRect" parent="Node2D" unique_id=854168762]
-mouse_filter = 2
 offset_right = 40.0
 offset_bottom = 40.0
+mouse_filter = 2
 texture = ExtResource("1_tbgi4")
 
 [node name="TextureRect2" type="TextureRect" parent="Node2D" unique_id=834360040]
-mouse_filter = 2
 offset_right = 40.0
 offset_bottom = 40.0
+mouse_filter = 2
 texture = ExtResource("2_tefeu")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2121046835]

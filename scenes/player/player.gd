@@ -5,7 +5,7 @@ const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
 # MOVEMENT SETTINGS
 @export_group("Locomotion")
 @export var move_speed: float = 7.0
-@export var jump_velocity: float = 4.5
+@export var jump_velocity: float = 8.5
 @export var mouse_sensitivity: float = 0.002
 @export var sprint_speed: float = 11.5
 
@@ -29,32 +29,16 @@ const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
 @export var camera_height_speed: float = 8.0
 
 @export_group("Dash")
-@export var dash_speed: float = 14.5
+@export var dash_speed: float = 8.5
 @export var dash_duration: float = 0.08
 @export var sideways_dash_duration: float = 0.12
-@export var dash_cooldown: float = 2.0
+@export var dash_cooldown: float = 0.5
 @export var dash_follows_aim: bool = true
 
-@export_group("Wall Run")
-@export var wall_min_speed: float = 7.0
-@export var wall_run_speed: float = 11.5
-@export var wall_acceleration: float = 12.0
-@export var wall_run_duration: float = 1.2
-@export var wall_gravity: float = 3.0
-@export var wall_max_fall_speed: float = 2.0
-@export var wall_probe_distance: float = 0.65
-@export var wall_max_normal_y: float = 0.2
-@export var wall_reentry_delay: float = 0.2
-
-@export_group("Wall Jump")
-@export var wall_jump_up_speed: float = 5.5
-@export var wall_jump_push_speed: float = 7.0
-@export var wall_jump_control_lock: float = 0.15
-
 @export_group("Double Jump")
-@export var double_jump_velocity: float = 4.95
+@export var double_jump_velocity: float = 8.5
 
-enum MovementState { GROUNDED, SPRINTING, AIRBORNE, SLIDING, DASHING, WALL_RUNNING }
+enum MovementState { GROUNDED, SPRINTING, AIRBORNE, SLIDING, DASHING }
 var movement_state: MovementState = MovementState.AIRBORNE
 var coyote_remaining: float = 0.0
 var jump_buffer_remaining: float = 0.0
@@ -71,11 +55,6 @@ var dash_cooldown_remaining: float = 0.0
 var dash_direction: Vector3 = Vector3.ZERO
 var dash_launch_speed: float = 0.0
 var air_dash_available: bool = true
-var wall_normal: Vector3 = Vector3.ZERO
-var wall_budget_remaining: float = 0.0
-var wall_reentry_remaining: float = 0.0
-var wall_jump_lock_remaining: float = 0.0
-var last_wall_jump_normal: Vector3 = Vector3.ZERO
 var extra_jumps_remaining: int = 1
 
 @export_group("Variable Jump")
@@ -92,6 +71,11 @@ var jump_cut_applied: bool = true
 # CAMERA CONSTANTS
 const MIN_LOOK_ANGLE: float = -89.0
 const MAX_LOOK_ANGLE: float = 89.0
+
+# BOB VARIABLS
+const BOB_FREQ = 2.0
+const BOB_AMP = 0.08
+var t_bob = 0.0
 
 #Animations
 @onready var head: Node3D = $Head
@@ -114,7 +98,6 @@ func _ready() -> void:
 	standing_shape_position = body_collision.position
 	standing_head_height = head.position.y
 	crouch_height = clampf(crouch_height, standing_shape.radius * 2.0, standing_height)
-	wall_budget_remaining = wall_run_duration
 	# Capture mouse when the game launches
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if muzzle_flash:
@@ -182,17 +165,16 @@ func _physics_process(delta: float) -> void:
 	jump_buffer_remaining = maxf(0.0, jump_buffer_remaining - delta)
 	coyote_remaining = maxf(0.0, coyote_remaining - delta)
 	dash_cooldown_remaining = maxf(0.0, dash_cooldown_remaining - delta)
-	wall_reentry_remaining = maxf(0.0, wall_reentry_remaining - delta)
-	wall_jump_lock_remaining = maxf(0.0, wall_jump_lock_remaining - delta)
 	slide_boost_cooldown_remaining = maxf(0.0, slide_boost_cooldown_remaining - delta)
 	if is_on_floor():
 		coyote_remaining = coyote_time
-		wall_budget_remaining = wall_run_duration
-		last_wall_jump_normal = Vector3.ZERO
 		extra_jumps_remaining = 1
 		air_dash_available = true
 	if _action_just_pressed("jump"):
 		jump_buffer_remaining = jump_buffer_time
+		
+	t_bob += delta * velocity.length() * float(is_on_floor())
+	camera.transform.origin = _headbob(t_bob)
 
 	var input_dir := Vector2.ZERO
 	if controls_active:
@@ -222,16 +204,11 @@ func _physics_process(delta: float) -> void:
 	if movement_state == MovementState.DASHING:
 		_move_dash(delta)
 		return
-	_update_wall_contact(direction)
 
-	if movement_state == MovementState.WALL_RUNNING:
-		velocity.y = maxf(velocity.y - wall_gravity * delta, -wall_max_fall_speed)
-	elif not is_on_floor():
+	if not is_on_floor():
 		velocity.y -= calculate_gravity() * delta
 	if jump_buffer_remaining > 0.0:
-		if movement_state == MovementState.WALL_RUNNING:
-			_wall_jump()
-		elif is_on_floor() or coyote_remaining > 0.0:
+		if is_on_floor() or coyote_remaining > 0.0:
 			_begin_jump(jump_velocity)
 		elif extra_jumps_remaining > 0:
 			extra_jumps_remaining -= 1
@@ -239,20 +216,21 @@ func _physics_process(delta: float) -> void:
 	_apply_jump_cut()
 	if movement_state == MovementState.SLIDING:
 		_move_slide(direction, delta)
-	elif movement_state == MovementState.WALL_RUNNING:
-		_move_wall_run(direction, delta)
 	else:
 		_move_horizontal(direction, sprinting, delta)
 	move_and_slide()
 	if movement_state == MovementState.SLIDING and not is_on_floor():
 		movement_state = MovementState.AIRBORNE
-	if movement_state == MovementState.WALL_RUNNING:
-		if is_on_floor() or is_on_ceiling() or _horizontal_velocity().length() < wall_min_speed:
-			_end_wall_run()
-	if movement_state not in [MovementState.SLIDING, MovementState.WALL_RUNNING]:
+	if movement_state != MovementState.SLIDING:
 		movement_state = MovementState.AIRBORNE
 		if is_on_floor():
 			movement_state = MovementState.SPRINTING if sprinting and not is_crouched else MovementState.GROUNDED
+	
+func _headbob(time) -> Vector3:
+	var pos = Vector3.ZERO
+	pos.y = sin(time * BOB_FREQ) * BOB_AMP
+	pos.x = cos(time * BOB_FREQ) * BOB_AMP
+	return pos
 
 func _begin_jump(upward_speed: float) -> void:
 	movement_state = MovementState.AIRBORNE
@@ -282,8 +260,6 @@ func _set_horizontal(value: Vector3) -> void:
 	velocity.z = value.z
 
 func _move_horizontal(direction: Vector3, sprinting: bool, delta: float) -> void:
-	if wall_jump_lock_remaining > 0.0 and not is_on_floor():
-		return
 	var horizontal := _horizontal_velocity()
 	var target_speed := sprint_speed if sprinting else move_speed
 	if is_crouched:
@@ -374,67 +350,6 @@ func _move_dash(delta: float) -> void:
 	if blocked or dash_remaining <= 0.0:
 		# Keep collision-resolved velocity; ordinary movement and gravity take over.
 		movement_state = MovementState.GROUNDED if is_on_floor() else MovementState.AIRBORNE
-
-func _find_wall(direction: Vector3) -> Vector3:
-	var probes: Array[Vector3] = [global_basis.x, -global_basis.x]
-	if movement_state == MovementState.WALL_RUNNING:
-		probes.push_front(-wall_normal)
-	var origin := global_position + Vector3.UP * (standing_height * 0.55)
-	for probe in probes:
-		var query := PhysicsRayQueryParameters3D.create(origin, origin + probe * wall_probe_distance, collision_mask, [get_rid()])
-		var hit := get_world_3d().direct_space_state.intersect_ray(query)
-		if hit.is_empty():
-			continue
-		# Level authors explicitly opt in solid walls; terrain and props are not magnetic.
-		if not hit.collider is StaticBody3D or not hit.collider.is_in_group("wall_runnable"):
-			continue
-		var normal: Vector3 = hit.normal
-		if absf(normal.y) > wall_max_normal_y:
-			continue
-		if not last_wall_jump_normal.is_zero_approx() and normal.dot(last_wall_jump_normal) > 0.9:
-			continue # A wall jump cannot repeatedly climb the same-facing surface.
-		# Reject head-on approaches and deliberate steering away from the wall.
-		var approach := direction.normalized().dot(normal)
-		if approach > 0.25 or approach < -0.65:
-			continue
-		if movement_state == MovementState.WALL_RUNNING and normal.dot(wall_normal) < 0.5:
-			continue # Sharp corners end the run instead of snapping the player around them.
-		return normal
-	return Vector3.ZERO
-
-func _update_wall_contact(direction: Vector3) -> void:
-	var eligible := not is_on_floor() and not is_crouched and not direction.is_zero_approx()
-	eligible = eligible and wall_budget_remaining > 0.0 and wall_reentry_remaining <= 0.0
-	eligible = eligible and _horizontal_velocity().length() >= wall_min_speed
-	var normal := _find_wall(direction) if eligible else Vector3.ZERO
-	if normal.is_zero_approx():
-		if movement_state == MovementState.WALL_RUNNING:
-			_end_wall_run()
-		return
-	wall_normal = normal
-	movement_state = MovementState.WALL_RUNNING
-	coyote_remaining = 0.0
-
-func _move_wall_run(direction: Vector3, delta: float) -> void:
-	wall_budget_remaining = maxf(0.0, wall_budget_remaining - delta)
-	var tangent := direction.slide(wall_normal).normalized()
-	var horizontal := _horizontal_velocity().slide(wall_normal)
-	_set_horizontal(horizontal.move_toward(tangent * maxf(wall_run_speed, horizontal.length()), wall_acceleration * delta))
-	if wall_budget_remaining <= 0.0:
-		_end_wall_run()
-
-func _end_wall_run() -> void:
-	movement_state = MovementState.AIRBORNE
-	wall_reentry_remaining = wall_reentry_delay
-
-func _wall_jump() -> void:
-	var tangent := _horizontal_velocity().slide(wall_normal)
-	var away := Vector3(wall_normal.x, 0.0, wall_normal.z).normalized()
-	_set_horizontal(tangent + away * wall_jump_push_speed)
-	last_wall_jump_normal = wall_normal
-	_end_wall_run()
-	wall_jump_lock_remaining = wall_jump_control_lock
-	_begin_jump(wall_jump_up_speed)
 
 func _process(delta: float) -> void:
 	var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
