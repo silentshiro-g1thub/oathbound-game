@@ -1,6 +1,8 @@
 extends CharacterBody3D
 
 const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
+const Dummy = preload("res://scenes/dummy.gd")
+var dummy_counter: int = 0
 
 # MOVEMENT SETTINGS
 @export_group("Locomotion")
@@ -103,9 +105,25 @@ const MAX_LOOK_ANGLE: float = 89.0
 #Guns
 @onready var crosshair: Control = get_node_or_null("../Node2D/TextureRect")
 @onready var crosshair_hit: Control = get_node_or_null("../Node2D/TextureRect2")
-@onready var aim_ray: RayCast3D = get_node_or_null("Head/Camera3D/RayCast3D")
+
+func _enter_tree():
+	
+	set_multiplayer_authority(str(name).to_int())
+	
+
+
 # INITIALIZATION
 func _ready() -> void:
+	if not is_multiplayer_authority():
+		# Remote copies are visual only: no collision (a spawned capsule overlapping
+		# the local player shoves it through the floor) and no physics simulation.
+		collision_layer = 0
+		collision_mask = 0
+		if muzzle_flash:
+			muzzle_flash.visible = false
+		set_physics_process(false)
+		return
+	camera.current = true
 	# Each player owns its capsule so resizing one cannot resize another.
 	assert(body_collision.shape is CapsuleShape3D, "Movement requires a CapsuleShape3D")
 	body_collision.shape = body_collision.shape.duplicate()
@@ -149,9 +167,17 @@ func _action_just_pressed(action: StringName) -> bool:
 	return controls_active and Input.is_action_just_pressed(action)
 # MOUSE TRACKING AND INPUT EVENTS & EDGE CASES
 func _unhandled_input(event: InputEvent) -> void:
+	if not multiplayer.has_multiplayer_peer(): return
+	if not is_multiplayer_authority(): return
 	if event.is_action_pressed("ui_cancellation"):
 		_release_controls()
 		return
+	# Debug: F3 + 1 spawns a one-hit dummy where you stand (replicated to peers).
+	if event is InputEventKey and event.pressed and not event.echo:
+		var key: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+		if key == KEY_1 and Input.is_physical_key_pressed(KEY_F3):
+			spawn_dummy.rpc(_dummy_spawn_position())
+			return
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		controls_active = true
@@ -169,8 +195,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(MIN_LOOK_ANGLE),
 			deg_to_rad(MAX_LOOK_ANGLE)
 		)
-	if event.is_action_pressed("Shoot") and animation_play and animation_play.current_animation != "Shot":
-		play_shoot_effects()
+	if event.is_action_pressed("Shoot") and not _shot_anim_active():
+		play_shoot_effects.rpc()
+		_fire_hitscan()
 
 # GRAVITY CALCULATION
 func calculate_gravity() -> float:
@@ -178,6 +205,9 @@ func calculate_gravity() -> float:
 
 # MAIN PHYSICS CALCULATION
 func _physics_process(delta: float) -> void:
+	if not multiplayer.has_multiplayer_peer(): return
+	if not is_multiplayer_authority(): return
+
 	jump_timer = maxf(0.0, jump_timer - delta)
 	jump_buffer_remaining = maxf(0.0, jump_buffer_remaining - delta)
 	coyote_remaining = maxf(0.0, coyote_remaining - delta)
@@ -319,6 +349,7 @@ func _can_stand() -> bool:
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 func _move_slide(direction: Vector3, delta: float) -> void:
+	var local_input := global_basis.inverse() * direction
 	slide_remaining -= delta
 	var horizontal := _horizontal_velocity()
 	var speed := maxf(0.0, horizontal.length() - slide_friction * delta)
@@ -331,7 +362,7 @@ func _move_slide(direction: Vector3, delta: float) -> void:
 func _start_dash(direction: Vector3) -> void:
 	var local_input := global_basis.inverse() * direction
 	if dash_follows_aim:
-		var local_direction := global_basis.inverse() * direction
+		var local_direction := local_input
 		if direction.is_zero_approx():
 			dash_direction = -camera.global_basis.z.normalized()
 		else:
@@ -437,22 +468,63 @@ func _wall_jump() -> void:
 	_begin_jump(wall_jump_up_speed)
 
 func _process(delta: float) -> void:
-	var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
-	head.position.y = move_toward(head.position.y, eye_height, camera_height_speed * delta)
-	# Weapon presentation never writes movement velocity.
-	if not animation_play or animation_play.current_animation == "Shot":
+	# Post-disconnect frames: the peer is gone but freed nodes still tick once.
+	if not multiplayer.has_multiplayer_peer(): return
+	if is_multiplayer_authority():
+		var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
+		head.position.y = move_toward(head.position.y, eye_height, camera_height_speed * delta)
+	# Weapon presentation never writes movement velocity. Remote copies stay
+	# processable so replicated Shot/idle animations still update.
+	if _shot_anim_active():
 		return
 	var animation := "move" if is_on_floor() and _horizontal_velocity().length() > 0.1 else "Idle"
 	if animation_play.current_animation != animation:
 		animation_play.play(animation)
 
+func _shot_anim_active() -> bool:
+	# A finished non-looping animation keeps its name in current_animation;
+	# is_playing() is the only reliable "still shooting" check.
+	return animation_play != null and animation_play.is_playing() and animation_play.current_animation == "Shot"
+
+const GUN_RANGE: float = 1000.0
+
+func _fire_hitscan() -> void:
+	# One-hit kill on debug dummies; ignored against everything else.
+	var origin := camera.global_position
+	var target := origin - camera.global_basis.z * GUN_RANGE
+	var query := PhysicsRayQueryParameters3D.create(origin, target, collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit and hit.collider.has_method("die"):
+		hit.collider.die.rpc()
+
+func _dummy_spawn_position() -> Vector3:
+	# Slightly in front: a dummy spawned inside your own capsule shoves you around.
+	var forward := -global_basis.z
+	forward.y = 0.0
+	if forward.is_zero_approx():
+		forward = Vector3.FORWARD
+	return global_position + forward.normalized() * 1.5
+
+@rpc("authority", "call_local")
+func spawn_dummy(spawn_position: Vector3) -> void:
+	var dummy := Dummy.new()
+	# Peer-prefixed names never collide between players, and stay deterministic so
+	# every peer's copy sits at the same node path for die.rpc().
+	dummy.name = "%s_Dummy%d" % [name, dummy_counter]
+	dummy_counter += 1
+	get_parent().add_child(dummy)
+	dummy.global_position = spawn_position
+
+@rpc("authority", "call_local")
 func play_shoot_effects() -> void:
 	if not animation_play:
 		return
 	animation_play.stop()
 	animation_play.play("Shot")
+	# Direct call: this already runs on every peer, and a nested .rpc() from a
+	# remote copy would be rejected (only the authority may call RPCs here).
 	show_muzzle_flash()
-		
+
 func show_muzzle_flash() -> void:
 	if not muzzle_flash:
 		return
@@ -460,3 +532,5 @@ func show_muzzle_flash() -> void:
 	muzzle_flash.rotation.z = randf_range(0.0, TAU) # random spin so it looks different each shot
 	await get_tree().create_timer(0.08).timeout
 	muzzle_flash.visible = false
+
+	
