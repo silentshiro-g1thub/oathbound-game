@@ -364,8 +364,19 @@ func test_main_scene() -> void:
 	root.add_child(main)
 	var actor := main.get_node("Player") as CharacterBody3D
 	actor.set_physics_process(false)
-	check(actor.animation_play != null and actor.muzzle_flash != null and actor.aim_ray != null, "main scene retains weapon and aim node references")
-	check(actor.crosshair.mouse_filter == Control.MOUSE_FILTER_IGNORE and actor.crosshair_hit.mouse_filter == Control.MOUSE_FILTER_IGNORE, "crosshair UI cannot swallow shooting or recapture clicks")
+	var weapon: Node = actor.active_weapon
+	check(weapon != null and weapon.has_method("try_fire"), "equipped revolver loads its firing script from its current path")
+	var plain_node := Node.new()
+	actor.active_weapon = plain_node
+	actor._fire_active_weapon()
+	plain_node.free()
+	actor._fire_active_weapon()
+	actor.active_weapon = weapon
+	check(not weapon.revolver_sfx.playing, "missing or freed weapon scripts cannot fire or crash dispatch")
+	check(actor.active_weapon.revolver_sfx is AudioStreamPlayer3D and actor.active_weapon.revolver_sfx.stream != null, "revolver owns a configured 3D gunshot player")
+	check(not actor.active_weapon.revolver_sfx.playing, "gunshot does not autoplay")
+	check(actor.active_weapon.animation_play != null and actor.active_weapon.muzzle_flash != null and actor.active_weapon.aim_ray != null, "main scene retains weapon and aim node references")
+	check(actor.active_weapon.crosshair.mouse_filter == Control.MOUSE_FILTER_IGNORE and actor.active_weapon.crosshair_hit.mouse_filter == Control.MOUSE_FILTER_IGNORE, "crosshair UI cannot swallow shooting or recapture clicks")
 	check(actor.get_node("Head/Camera3D").rotation.is_zero_approx(), "camera mount is aligned with movement yaw and head pitch")
 	actor._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	check(not actor.controls_active and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "focus loss releases mouse and controls")
@@ -374,15 +385,20 @@ func test_main_scene() -> void:
 	click.pressed = true
 	actor._unhandled_input(click)
 	print("Headless mouse mode after recapture: ", Input.mouse_mode, "; click matches Shoot: ", click.is_action_pressed("Shoot"))
-	check(actor.controls_active and actor.animation_play.current_animation != "Shot", "recapture click does not shoot")
+	check(actor.controls_active and actor.active_weapon.animation_play.current_animation != "Shot", "recapture click does not shoot")
+	check(not actor.active_weapon.revolver_sfx.playing, "mouse recapture click does not play gunshot audio")
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		actor._unhandled_input(click)
 	else:
 		print("MANUAL CHECK REQUIRED: headless display does not capture mouse; invoking weapon effects directly")
-		actor.play_shoot_effects()
-	check(actor.animation_play.current_animation == "Shot" and actor.muzzle_flash.visible, "original shot animation and muzzle flash still work")
+		actor._fire_active_weapon()
+	check(actor.active_weapon.animation_play.current_animation == "Shot" and actor.active_weapon.muzzle_flash.visible, "original shot animation and muzzle flash still work")
+	check(actor.active_weapon.revolver_sfx.playing, "accepted revolver shot plays its audio")
+	actor.active_weapon.revolver_sfx.stop()
+	actor.active_weapon.try_fire()
+	check(not actor.active_weapon.revolver_sfx.playing, "shot rejected during recoil cannot trigger audio")
 	await create_timer(0.15).timeout
-	check(not actor.muzzle_flash.visible, "muzzle flash expires")
+	check(not actor.active_weapon.muzzle_flash.visible, "muzzle flash expires")
 	main.free()
 
 func test_launch_changes() -> void:
