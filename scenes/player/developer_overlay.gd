@@ -136,8 +136,6 @@ func snapshot_text() -> String:
 		"Coyote: %.2fs  |  Jump buffer: %.2fs" % [player.coyote_remaining, player.jump_buffer_remaining],
 		"Slide time: %.2fs  |  Dash time: %.2fs" % [active_slide, active_dash],
 		"Dash cooldown: %.2fs" % player.dash_cooldown_remaining,
-		"Wall budget: %.2fs  |  Re-entry: %.2fs" % [player.wall_budget_remaining, player.wall_reentry_remaining],
-		"Wall jump steering lock: %.2fs" % player.wall_jump_lock_remaining,
 		"",
 		"Controls: %s  |  Mouse captured: %s" % [_yes_no(player.controls_active), _yes_no(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)],
 		"Held: %s" % (", ".join(inputs) if not inputs.is_empty() else "none"),

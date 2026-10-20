@@ -41,6 +41,11 @@ func reset_player(at: Vector3 = Vector3(0, 0.01, 0)) -> void:
 	if is_instance_valid(player):
 		player.free()
 	player = PlayerScene.instantiate()
+	# Fixed regression fixture; Inspector/default tuning remains user-controlled.
+	player.jump_velocity = 4.5
+	player.double_jump_velocity = 4.95
+	player.dash_speed = 23.0
+	player.dash_cooldown = 0.8
 	world.add_child(player)
 	player.position = at
 	player.set_physics_process(false)
@@ -114,8 +119,6 @@ func _run() -> void:
 	check(not player.controls_active, "release disables gameplay input")
 	await test_slide()
 	await test_dash()
-	await test_wall_run()
-	await test_wall_jump()
 	await test_double_jump()
 	await test_edges()
 	await test_physics_rates()
@@ -165,6 +168,25 @@ func test_slide() -> void:
 	check(player.movement_state != player.MovementState.SLIDING, "held slide expires without auto-retrigger")
 
 func test_dash() -> void:
+	# Measure displacement, not just velocity: moving twice outside dash causes a hitch.
+	await reset_player()
+	player.dash_speed = 8.5
+	player.velocity = Vector3(0, 0, -player.sprint_speed)
+	Input.action_press("move_forward")
+	Input.action_press("sprint")
+	var previous_position := player.position
+	await tick()
+	var before_dash := previous_position.distance_to(player.position)
+	previous_position = player.position
+	Input.action_press("dash")
+	await tick()
+	var during_dash := previous_position.distance_to(player.position)
+	await tick(5)
+	previous_position = player.position
+	await tick()
+	var after_dash := previous_position.distance_to(player.position)
+	check(absf(before_dash - player.sprint_speed * dt) < 0.002, "ordinary movement advances exactly one physics step")
+	check(absf(during_dash - before_dash) < 0.002 and absf(after_dash - before_dash) < 0.002, "dash entry and exit preserve actual travel speed when incoming speed exceeds dash speed")
 	await reset_player()
 	player.dash_speed = 20.0
 	Input.action_press("dash")
@@ -235,64 +257,6 @@ func test_dash() -> void:
 	await tick()
 	check(player.movement_state == player.MovementState.SLIDING, "dash cannot expand a crouched capsule")
 
-func test_wall_run() -> void:
-	var wall := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity = Vector3(0, -3, -10)
-	Input.action_press("move_forward")
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "unmarked props cannot trigger wall run")
-	wall.add_to_group("wall_runnable")
-	await tick()
-	check(player.movement_state == player.MovementState.WALL_RUNNING, "eligible airborne movement starts on marked side wall")
-	check(player.velocity.y >= -2.01, "wall run limits falling speed")
-	await tick(80)
-	check(player.movement_state != player.MovementState.WALL_RUNNING and player.wall_budget_remaining <= 0.0, "airtime budget prevents indefinite wall run or reattachment")
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	await tick()
-	wall.position.x = 4
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "wall gap ends run")
-	wall.position.x = 0.85
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	Input.action_press("dash")
-	await tick(12)
-	check(player.movement_state == player.MovementState.WALL_RUNNING, "dash can transition to eligible wall run")
-	Input.action_release("move_forward")
-	Input.action_press("move_left")
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "steering away detaches from wall")
-	wall.free()
-
-func test_wall_jump() -> void:
-	var wall := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
-	wall.add_to_group("wall_runnable")
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	await tick()
-	Input.action_press("jump")
-	await tick()
-	check(player.velocity.y > 5.0 and player.velocity.x < -6.5, "wall jump launches up and away")
-	check(player.velocity.z < -9.0, "wall jump retains capped tangential momentum")
-	check(player.movement_state == player.MovementState.AIRBORNE, "wall jump exits wall run")
-	check(player.extra_jumps_remaining == 1, "wall jump preserves available extra jump")
-	Input.action_release("jump")
-	await tick()
-	Input.action_press("jump")
-	await tick()
-	check(player.extra_jumps_remaining == 0 and player.velocity.y > 4.0, "wall jump can transition to double jump")
-	await tick(16)
-	player.position.x = 0.0
-	player.velocity = Vector3(0, 0, -10)
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "same-facing wall cannot be reused after wall jump")
-	wall.free()
-
 func test_double_jump() -> void:
 	var heights: Array[float] = []
 	for launch_speed in [4.5, 4.95]:
@@ -327,19 +291,17 @@ func test_double_jump() -> void:
 	Input.action_release("jump")
 	await tick(100)
 	check(player.is_on_floor() and player.extra_jumps_remaining == 1, "landing restores exactly one extra jump")
-	var wall := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
-	wall.add_to_group("wall_runnable")
-	await reset_player(Vector3(0, 6, 0))
-	player.extra_jumps_remaining = 0
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	await tick()
-	Input.action_press("jump")
-	await tick()
-	check(player.velocity.y > 5 and player.extra_jumps_remaining == 0, "wall jump works after extra jump is spent and does not refill it")
-	wall.free()
-
 func test_edges() -> void:
+	var side_wall := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
+	await reset_player(Vector3(0, 6, 0))
+	player.velocity = Vector3(0, -3, -11.5)
+	player.extra_jumps_remaining = 0
+	Input.action_press("move_forward")
+	Input.action_press("jump")
+	await tick(10)
+	check(player.movement_state == player.MovementState.AIRBORNE and player.velocity.y < -5.0, "side wall does not alter gravity or grant a jump")
+	check(player.extra_jumps_remaining == 0, "side wall does not restore extra jump")
+	side_wall.free()
 	await reset_player()
 	player.velocity.z = -11.5
 	Input.action_press("slide")
@@ -359,39 +321,6 @@ func test_edges() -> void:
 	await tick(10)
 	check(player.position.y < 0.2 and player.velocity.y <= 0.0, "jump stops against low ceiling")
 	roof.free()
-	var wall := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
-	wall.add_to_group("wall_runnable")
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -3
-	Input.action_press("move_forward")
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "wall run rejects insufficient speed")
-	player.velocity = Vector3(10, 0, 0)
-	Input.action_release("move_forward")
-	Input.action_press("move_right")
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "head-on approach does not attach to wall")
-	wall.free()
-	var steep_surface := box(Vector3(0.8, 7, 0), Vector3(0.5, 14, 100))
-	steep_surface.rotation.z = deg_to_rad(35)
-	steep_surface.add_to_group("wall_runnable")
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	await tick()
-	check(player.movement_state != player.MovementState.WALL_RUNNING, "tilted surface does not count as vertical wall")
-	steep_surface.free()
-	var side := box(Vector3(0.85, 7, 0), Vector3(0.5, 14, 100))
-	side.add_to_group("wall_runnable")
-	var corner := box(Vector3(0, 7, -2), Vector3(10, 14, 0.2))
-	corner.add_to_group("wall_runnable")
-	await reset_player(Vector3(0, 6, 0))
-	player.velocity.z = -10
-	Input.action_press("move_forward")
-	await tick(15)
-	check(player.movement_state != player.MovementState.WALL_RUNNING and player.position.z > -1.6, "sharp blocking corner ends wall run without snapping around it")
-	side.free()
-	corner.free()
 	var ramp := box(Vector3(0, 0, 0), Vector3(8, 0.4, 10))
 	ramp.rotation.x = deg_to_rad(15)
 	await reset_player(Vector3(0, 2, 2))
@@ -435,8 +364,19 @@ func test_main_scene() -> void:
 	root.add_child(main)
 	var actor := main.get_node("Player") as CharacterBody3D
 	actor.set_physics_process(false)
-	check(actor.animation_play != null and actor.muzzle_flash != null and actor.aim_ray != null, "main scene retains weapon and aim node references")
-	check(actor.crosshair.mouse_filter == Control.MOUSE_FILTER_IGNORE and actor.crosshair_hit.mouse_filter == Control.MOUSE_FILTER_IGNORE, "crosshair UI cannot swallow shooting or recapture clicks")
+	var weapon: Node = actor.active_weapon
+	check(weapon != null and weapon.has_method("try_fire"), "equipped revolver loads its firing script from its current path")
+	var plain_node := Node.new()
+	actor.active_weapon = plain_node
+	actor._fire_active_weapon()
+	plain_node.free()
+	actor._fire_active_weapon()
+	actor.active_weapon = weapon
+	check(not weapon.revolver_sfx.playing, "missing or freed weapon scripts cannot fire or crash dispatch")
+	check(actor.active_weapon.revolver_sfx is AudioStreamPlayer3D and actor.active_weapon.revolver_sfx.stream != null, "revolver owns a configured 3D gunshot player")
+	check(not actor.active_weapon.revolver_sfx.playing, "gunshot does not autoplay")
+	check(actor.active_weapon.animation_play != null and actor.active_weapon.muzzle_flash != null and actor.active_weapon.aim_ray != null, "main scene retains weapon and aim node references")
+	check(actor.active_weapon.crosshair.mouse_filter == Control.MOUSE_FILTER_IGNORE and actor.active_weapon.crosshair_hit.mouse_filter == Control.MOUSE_FILTER_IGNORE, "crosshair UI cannot swallow shooting or recapture clicks")
 	check(actor.get_node("Head/Camera3D").rotation.is_zero_approx(), "camera mount is aligned with movement yaw and head pitch")
 	actor._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	check(not actor.controls_active and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "focus loss releases mouse and controls")
@@ -445,15 +385,20 @@ func test_main_scene() -> void:
 	click.pressed = true
 	actor._unhandled_input(click)
 	print("Headless mouse mode after recapture: ", Input.mouse_mode, "; click matches Shoot: ", click.is_action_pressed("Shoot"))
-	check(actor.controls_active and actor.animation_play.current_animation != "Shot", "recapture click does not shoot")
+	check(actor.controls_active and actor.active_weapon.animation_play.current_animation != "Shot", "recapture click does not shoot")
+	check(not actor.active_weapon.revolver_sfx.playing, "mouse recapture click does not play gunshot audio")
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		actor._unhandled_input(click)
 	else:
 		print("MANUAL CHECK REQUIRED: headless display does not capture mouse; invoking weapon effects directly")
-		actor.play_shoot_effects()
-	check(actor.animation_play.current_animation == "Shot" and actor.muzzle_flash.visible, "original shot animation and muzzle flash still work")
+		actor._fire_active_weapon()
+	check(actor.active_weapon.animation_play.current_animation == "Shot" and actor.active_weapon.muzzle_flash.visible, "original shot animation and muzzle flash still work")
+	check(actor.active_weapon.revolver_sfx.playing, "accepted revolver shot plays its audio")
+	actor.active_weapon.revolver_sfx.stop()
+	actor.active_weapon.try_fire()
+	check(not actor.active_weapon.revolver_sfx.playing, "shot rejected during recoil cannot trigger audio")
 	await create_timer(0.15).timeout
-	check(not actor.muzzle_flash.visible, "muzzle flash expires")
+	check(not actor.active_weapon.muzzle_flash.visible, "muzzle flash expires")
 	main.free()
 
 func test_launch_changes() -> void:

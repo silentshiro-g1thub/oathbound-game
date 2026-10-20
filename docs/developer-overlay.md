@@ -8,7 +8,7 @@ Run the game with F5, or the practice scene with F6, then click the game to give
 
 The panel is available in the editor and debug exports. Release exports do not create it. It starts hidden, with logging off, and remains usable while the mouse is released. It does not pause the game or change player velocity. Respawning/reloading creates a fresh panel with logging off.
 
-Advanced mode displays horizontal speed, vertical speed, velocity XYZ, real velocity, world position, movement state, crouch state, FPS, physics tick rate, floor/wall/ceiling contact, slope angle, collision count, wall contact normal, extra jump charge, jump cut, coyote/jump buffer, slide/dash duration, dash cooldown, wall budget/re-entry delay, wall-jump steering lock, controls, mouse capture, and held movement inputs.
+Advanced mode displays horizontal speed, vertical speed, velocity XYZ, real velocity, world position, movement state, crouch state, FPS, physics tick rate, floor/wall/ceiling contact, slope angle, collision count, wall contact normal, extra jump charge, jump cut, coyote/jump buffer, slide/dash duration, dash cooldown, controls, mouse capture, and held movement inputs.
 
 `Velocity XYZ` is the controller's velocity after the most recent move. `Real velocity` comes from actual movement, which is useful when checking slopes or platform movement. Speed is horizontal magnitude, not the total 3D magnitude. Floor angle and wall contact normal show zero without current contact. Inactive slide/dash duration shows zero; a ready dash cooldown does not override other restrictions such as crouching. Held inputs are raw input states; `Controls` shows whether gameplay currently accepts them.
 
