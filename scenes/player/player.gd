@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
 const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
+const HealthBar = preload("res://scenes/player/health_bar.gd")
 const Dummy = preload("res://scenes/dummy.gd")
 var dummy_counter: int = 0
 
@@ -35,6 +36,10 @@ var dummy_counter: int = 0
 @export var sideways_dash_duration: float = 0.12
 @export var dash_cooldown: float = 0.5
 @export var dash_follows_aim: bool = true
+
+@export_group("Health")
+@export var max_health: int = 200
+var health: int = 200
 
 @export_group("Double Jump")
 @export var double_jump_velocity: float = 8.5
@@ -126,6 +131,16 @@ func _ready() -> void:
 	standing_head_height = head.position.y
 	crouch_height = clampf(crouch_height, standing_shape.radius * 2.0, standing_height)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	health = max_health
+	var health_hud := CanvasLayer.new()
+	health_hud.name = "HealthHud"
+	health_hud.layer = 20
+	add_child(health_hud)
+	var health_bar := HealthBar.new()
+	health_bar.name = "HealthBar"
+	health_hud.add_child(health_bar)
+	health_bar.set_health(health, max_health)
 
 	if OS.is_debug_build():
 		var developer_overlay := DeveloperOverlay.new()

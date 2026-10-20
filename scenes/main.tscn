@@ -136,7 +136,7 @@ theme_override_constants/separation = 15
 
 [node name="Label" type="Label" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1453998916]
 layout_mode = 2
-text = "Oathbound"
+text = "Main Menu"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -150,7 +150,7 @@ text = "Join"
 
 [node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
 layout_mode = 2
-placeholder_text = "Room code"
+placeholder_text = "Host IP or IP:port (blank = localhost)"
 alignment = 1
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]

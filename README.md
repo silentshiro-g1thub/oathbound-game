@@ -28,9 +28,5 @@ Use lowercase names with underscores for new folders. Move assets through Godot'
 
 The player forwards valid shooting input to `active_weapon.try_fire()`. Its `active_weapon_path` selects the initial weapon component. Future inventory code can switch `active_weapon`; each weapon can implement its own `try_fire()` without adding weapon effects to the movement controller. This is a separation point, not a complete inventory system.
 
-Multiplayer is room-code only, in the style of a lobby code. Host creates a 6-character code and it stays on screen. Join types that code. Nobody types an IP address.
-
-Connections go out to a relay, so the host does not need an open UDP port for the old direct join. `res://multiplayer/relay.cfg` chooses the relay (override it with `user://relay.cfg`). The default starts the relay inside the host's game. Same-network friends are found from the code. Other networks are listed through the host's router when it allows the port. For play that does not depend on either router, run `multiplayer/run_relay.gd` on a public machine and point both games at `ws://that-machine:9050`.
-
-Connection failures return to the menu with a message. `tests/room_code_test.gd` covers the relay, codes, and gameplay packets. `tests/network_diagnosis.gd` still runs as two Godot processes (`host` and `client`) and now joins room `TESTAB` on port 19999.
+Multiplayer uses Host/Join on UDP 9999. Join accepts an address or address:port; it does not accept an arbitrary room code. Connection failures now return to the menu with a message. Local network integration coverage is in tests/network_diagnosis.gd (run two Godot processes with user arguments host and client; test port 19999). It checks peer spawning, the local terrain camera, crosshair centering, and fast downward dash landings on both the floor and terrain.
 
