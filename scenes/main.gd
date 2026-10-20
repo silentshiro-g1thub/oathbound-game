@@ -8,6 +8,9 @@ const PORT = 9999
 const SPAWN_SPACING: float = 2.0
 var enet_peer = ENetMultiplayerPeer.new()
 var connection_status: Label
+var joining: bool = false
+var join_elapsed: float = 0.0
+const JOIN_TIMEOUT: float = 12.0
 
 
 func _ready() -> void:
@@ -17,9 +20,12 @@ func _ready() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.connected_to_server.connect(_on_connected_to_server)
 
 
 func _on_button_pressed() -> void:
+	if joining:
+		return
 	enet_peer = ENetMultiplayerPeer.new() # fresh peer so re-hosting after a disconnect works
 	var error := enet_peer.create_server(PORT)
 	if error != OK:
@@ -33,6 +39,8 @@ func _on_button_pressed() -> void:
 	_print_join_info()
 
 func _on_button_2_pressed() -> void:
+	if joining:
+		return
 	# Blank means localhost for testing on one machine.
 	var address: String = address_entry.text.strip_edges()
 	if address.is_empty():
@@ -49,8 +57,50 @@ func _on_button_2_pressed() -> void:
 	if error != OK:
 		_show_connection_error("Could not join: %s" % error_string(error))
 		return
-	main_menu.hide()
+	main_menu.show()
+	connection_status.text = "Connecting to %s:%d..." % [address, port]
+	joining = true
+	join_elapsed = 0.0
+	_set_join_buttons_disabled(true)
 	multiplayer.multiplayer_peer = enet_peer
+
+
+## Keep connection progress visible until the local player has actually spawned.
+func _process(delta: float) -> void:
+	if not joining:
+		return
+
+	join_elapsed += delta
+	if enet_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		var local_player := get_node_or_null(str(multiplayer.get_unique_id()))
+		if local_player and local_player.is_node_ready() and local_player.camera.current:
+			joining = false
+			_set_join_buttons_disabled(false)
+			main_menu.hide()
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			return
+
+	if join_elapsed >= JOIN_TIMEOUT:
+		var connected := enet_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+		_on_server_disconnected()
+		_show_connection_error(
+			"Connected, but no player spawned. Both players need the same game version."
+			if connected else
+			"Connection timed out. Check the host IP, firewall, and UDP 9999 forwarding."
+		)
+
+
+## Distinguish a completed network handshake from a completed player spawn.
+func _on_connected_to_server() -> void:
+	if joining:
+		join_elapsed = 0.0
+		connection_status.text = "Connected. Waiting for your player..."
+
+
+## Prevent repeated connection attempts while the current attempt is pending.
+func _set_join_buttons_disabled(disabled: bool) -> void:
+	$CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button.disabled = disabled
+	$CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button2.disabled = disabled
 
 func add_player(peer_id):
 	var player =Player.instantiate()
@@ -65,6 +115,8 @@ func _on_connection_failed() -> void:
 	_show_connection_error("Connection failed. Check the host address and UDP port.")
 
 func _show_connection_error(message: String) -> void:
+	joining = false
+	_set_join_buttons_disabled(false)
 	main_menu.show()
 	connection_status.text = message
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
