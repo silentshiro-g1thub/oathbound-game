@@ -1,8 +1,11 @@
 [gd_scene format=3 uid="uid://vq0ffduaoidq"]
 
 [ext_resource type="Script" uid="uid://dpphoip7o2kgk" path="res://scenes/player/player.gd" id="1_player"]
-[ext_resource type="PackedScene" uid="uid://bnc8ypkun27a" path="res://Manurhin MR93.fbx" id="2_gmlin"]
-[ext_resource type="Texture2D" uid="uid://bclb3eq0i4m20" path="res://Sample assets/muzzleflash.png" id="3_lvxji"]
+[ext_resource type="PackedScene" uid="uid://bnc8ypkun27a" path="res://assets/weapon_models/Manurhin MR93.fbx" id="2_gmlin"]
+[ext_resource type="Texture2D" uid="uid://bclb3eq0i4m20" path="res://assets/prototype_textures/muzzleflash.png" id="3_lvxji"]
+
+[ext_resource type="AudioStream" path="res://assets/audio/gunshot.mp3" id="7_gunshot"]
+[ext_resource type="Script" uid="uid://dg7c2ts5pr0ko" path="res://scenes/weapons/revolver.gd" id="8_revolver"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sgp6g"]
 radius = 0.35
@@ -138,49 +141,7 @@ properties/2/replication_mode = 1
 
 [node name="Player" type="CharacterBody3D" unique_id=299842047]
 script = ExtResource("1_player")
-move_speed = null
-jump_velocity = null
-mouse_sensitivity = null
-sprint_speed = null
-ground_acceleration = null
-ground_deceleration = null
-ground_momentum_drag = null
-air_acceleration = null
-coyote_time = null
-jump_buffer_time = null
-slide_min_speed = null
-slide_entry_boost = null
-slide_boost_cooldown = null
-slide_duration = null
-slide_friction = null
-slide_stop_speed = null
-slide_steering = null
-crouch_height = null
-crouch_speed = null
-camera_height_speed = null
-dash_speed = null
-dash_duration = null
-sideways_dash_duration = null
-dash_cooldown = null
-dash_follows_aim = null
-wall_min_speed = null
-wall_run_speed = null
-wall_acceleration = null
-wall_run_duration = null
-wall_gravity = null
-wall_max_fall_speed = null
-wall_probe_distance = null
-wall_max_normal_y = null
-wall_reentry_delay = null
-wall_jump_up_speed = null
-wall_jump_push_speed = null
-wall_jump_control_lock = null
-double_jump_velocity = null
-short_hop_velocity = null
-early_release_window = null
-jump_gravity = null
-fall_gravity = null
-jump_cut_multiplier = null
+active_weapon_path = NodePath("Head/Camera3D/Manurhin MR93/RevolverController")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1565333687]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
@@ -215,3 +176,17 @@ playback_default_blend_time = 0.05
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=2060353351]
 replication_config = SubResource("SceneReplicationConfig_gmlin")
+
+[node name="GunshotAudio" type="AudioStreamPlayer3D" parent="Head/Camera3D/Manurhin MR93"]
+stream = ExtResource("7_gunshot")
+autoplay = false
+
+[node name="RevolverController" type="Node" parent="Head/Camera3D/Manurhin MR93"]
+script = ExtResource("8_revolver")
+player_path = NodePath("../../../..")
+
+
+[node name="RayCast3D" type="RayCast3D" parent="Head/Camera3D" unique_id=897496557]
+transform = Transform3D(0.9967546, 0.07426053, 0.031107182, 0.026428344, 0.06317823, -0.99765354, -0.07605155, 0.99523544, 0.06101042, 0.4043222, -0.20011008, -0.8195125)
+collision_mask = 2
+collide_with_areas = true

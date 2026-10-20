@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dbqka0ikf65fn" path="res://scenes/main.gd" id="1_jyhfs"]
 [ext_resource type="Terrain3DAssets" uid="uid://uk3u5yeldjap" path="res://new_terrain_3d_assets.tres" id="1_sugp2"]
-[ext_resource type="Texture2D" uid="uid://y8cvu247fh4l" path="res://Sample assets/crosshair.png" id="1_tbgi4"]
-[ext_resource type="Texture2D" uid="uid://dwcffe7jx6ply" path="res://Sample assets/crosshair hit.png" id="2_tefeu"]
+[ext_resource type="Texture2D" uid="uid://y8cvu247fh4l" path="res://assets/prototype_textures/crosshair.png" id="1_tbgi4"]
+[ext_resource type="Texture2D" uid="uid://dwcffe7jx6ply" path="res://assets/prototype_textures/crosshair hit.png" id="2_tefeu"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o5qli"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -67,6 +67,10 @@ size = Vector3(30, 1, 30)
 [node name="MAIN" type="Node3D" unique_id=1845102423]
 script = ExtResource("1_jyhfs")
 
+[node name="MenuCamera" type="Camera3D" parent="."]
+position = Vector3(0, 3, 8)
+current = true
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=781676762]
 environment = SubResource("Environment_sugp2")
 
@@ -96,7 +100,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 mesh = SubResource("BoxMesh_8tdgb")
 
 [node name="Terrain3D" type="Terrain3D" parent="Floor/MeshInstance3D" unique_id=1680630428]
-data_directory = "res://Terrain"
+data_directory = "res://terrain_data"
 material = SubResource("Terrain3DMaterial_85g3d")
 assets = ExtResource("1_sugp2")
 top_level = true
@@ -132,7 +136,7 @@ theme_override_constants/separation = 15
 
 [node name="Label" type="Label" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1453998916]
 layout_mode = 2
-text = "Main Menu"
+text = "Oathbound"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -146,7 +150,7 @@ text = "Join"
 
 [node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
 layout_mode = 2
-placeholder_text = "Enter Code Here"
+placeholder_text = "Room code"
 alignment = 1
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]

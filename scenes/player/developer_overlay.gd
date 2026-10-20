@@ -88,7 +88,12 @@ func _place_panel() -> void:
 func _network_text() -> String:
 	# No networking telemetry exists yet; never substitute invented zero readings.
 	var offline := not multiplayer.has_multiplayer_peer() or multiplayer.multiplayer_peer is OfflineMultiplayerPeer
-	return "Ping: N/A | Packet loss: N/A (%s)" % ("offline" if offline else "not measured")
+	var room := ""
+	var arena := player.get_parent()
+	var room_value = arena.get("room_code") if arena else ""
+	if room_value is String and room_value != "":
+		room = "Room %s | " % room_value
+	return "%sPing: N/A | Packet loss: N/A (%s)" % [room, "offline" if offline else "not measured"]
 
 func basic_text() -> String:
 	var fps := Engine.get_frames_per_second()
@@ -136,8 +141,6 @@ func snapshot_text() -> String:
 		"Coyote: %.2fs  |  Jump buffer: %.2fs" % [player.coyote_remaining, player.jump_buffer_remaining],
 		"Slide time: %.2fs  |  Dash time: %.2fs" % [active_slide, active_dash],
 		"Dash cooldown: %.2fs" % player.dash_cooldown_remaining,
-		"Wall budget: %.2fs  |  Re-entry: %.2fs" % [player.wall_budget_remaining, player.wall_reentry_remaining],
-		"Wall jump steering lock: %.2fs" % player.wall_jump_lock_remaining,
 		"",
 		"Controls: %s  |  Mouse captured: %s" % [_yes_no(player.controls_active), _yes_no(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)],
 		"Held: %s" % (", ".join(inputs) if not inputs.is_empty() else "none"),
