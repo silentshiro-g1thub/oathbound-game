@@ -7,9 +7,12 @@ const Player = preload("res://scenes/player/player.tscn")
 const PORT = 9999
 const SPAWN_SPACING: float = 2.0
 var enet_peer = ENetMultiplayerPeer.new()
+var connection_status: Label
 
 
 func _ready() -> void:
+	connection_status = Label.new()
+	address_entry.get_parent().add_child(connection_status)
 	# Fires on every peer, so players and their dummies are cleaned up everywhere.
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
@@ -17,9 +20,12 @@ func _ready() -> void:
 
 
 func _on_button_pressed() -> void:
-	main_menu.hide()
 	enet_peer = ENetMultiplayerPeer.new() # fresh peer so re-hosting after a disconnect works
-	enet_peer.create_server(PORT)
+	var error := enet_peer.create_server(PORT)
+	if error != OK:
+		_show_connection_error("Could not host: %s" % error_string(error))
+		return
+	main_menu.hide()
 	multiplayer.multiplayer_peer = enet_peer
 	if not multiplayer.peer_connected.is_connected(add_player):
 		multiplayer.peer_connected.connect(add_player)
@@ -27,7 +33,6 @@ func _on_button_pressed() -> void:
 	_print_join_info()
 
 func _on_button_2_pressed() -> void:
-	main_menu.hide()
 	# Blank means localhost for testing on one machine.
 	var address: String = address_entry.text.strip_edges()
 	if address.is_empty():
@@ -40,19 +45,31 @@ func _on_button_2_pressed() -> void:
 		if parts.size() > 1 and parts[1].is_valid_int():
 			port = int(parts[1])
 	enet_peer = ENetMultiplayerPeer.new()
-	enet_peer.create_client(address, port)
+	var error := enet_peer.create_client(address, port)
+	if error != OK:
+		_show_connection_error("Could not join: %s" % error_string(error))
+		return
+	main_menu.hide()
 	multiplayer.multiplayer_peer = enet_peer
 
 func add_player(peer_id):
 	var player =Player.instantiate()
 	player.name = str(peer_id)
-	add_child(player)
 	# Players all spawn at the origin; space them so they don't stack inside each other.
-	player.position.x = (get_child_count() % 8) * SPAWN_SPACING
+	player.position = Vector3((get_child_count() % 8) * SPAWN_SPACING, 2.0, 0)
+	add_child(player)
 
 func _on_connection_failed() -> void:
 	# Clear the failed peer so retrying with another address works.
 	multiplayer.multiplayer_peer = null
+	_show_connection_error("Connection failed. Check the host address and UDP port.")
+
+func _show_connection_error(message: String) -> void:
+	main_menu.show()
+	connection_status.text = message
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	$MenuCamera.make_current()
+	$Floor/MeshInstance3D/Terrain3D.set_camera($MenuCamera)
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	var player := get_node_or_null(str(peer_id))
@@ -67,7 +84,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 func _on_server_disconnected() -> void:
 	# Host left: tear down the session and return to the menu.
 	multiplayer.multiplayer_peer = null
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_show_connection_error("Disconnected from the host.")
 	for child in get_children():
 		# Players are CharacterBody3D; dummies are in the "dummy" group. The Floor is neither.
 		if child is CharacterBody3D or child.is_in_group("dummy"):

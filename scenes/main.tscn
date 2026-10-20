@@ -150,7 +150,7 @@ text = "Join"
 
 [node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
 layout_mode = 2
-placeholder_text = "Enter Code Here"
+placeholder_text = "Host IP or IP:port (blank = localhost)"
 alignment = 1
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]

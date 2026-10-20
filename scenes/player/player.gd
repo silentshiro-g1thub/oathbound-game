@@ -93,7 +93,8 @@ var t_bob = 0.0
 
 func _enter_tree():
 	
-	set_multiplayer_authority(str(name).to_int())
+	if str(name).is_valid_int():
+		set_multiplayer_authority(str(name).to_int())
 	
 
 
@@ -113,6 +114,9 @@ func _ready() -> void:
 		return
 
 	camera.current = true
+	var terrain := get_parent().find_child("Terrain3D", true, false)
+	if terrain and terrain.has_method("set_camera"):
+		terrain.set_camera(camera)
 
 	assert(body_collision.shape is CapsuleShape3D, "Movement requires a CapsuleShape3D")
 	body_collision.shape = body_collision.shape.duplicate()

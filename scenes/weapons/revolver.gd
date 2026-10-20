@@ -35,8 +35,8 @@ func _process(_delta: float) -> void:
 ## Keep the weapon crosshairs centered when the viewport changes size.
 func _center_crosshairs() -> void:
 	for marker in [crosshair, crosshair_hit]:
-		if marker:
-			marker.position = get_viewport().get_visible_rect().size * 0.5 - Vector2(32, 32)
+		if marker and player.is_multiplayer_authority():
+			marker.position = (get_viewport().get_visible_rect().size - marker.size * marker.scale) * 0.5
 
 
 ## Play animation, flash, and audio together for an accepted shot; ignore repeat requests during recoil.
