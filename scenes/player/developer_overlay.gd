@@ -88,7 +88,12 @@ func _place_panel() -> void:
 func _network_text() -> String:
 	# No networking telemetry exists yet; never substitute invented zero readings.
 	var offline := not multiplayer.has_multiplayer_peer() or multiplayer.multiplayer_peer is OfflineMultiplayerPeer
-	return "Ping: N/A | Packet loss: N/A (%s)" % ("offline" if offline else "not measured")
+	var room := ""
+	var arena := player.get_parent()
+	var room_value = arena.get("room_code") if arena else ""
+	if room_value is String and room_value != "":
+		room = "Room %s | " % room_value
+	return "%sPing: N/A | Packet loss: N/A (%s)" % [room, "offline" if offline else "not measured"]
 
 func basic_text() -> String:
 	var fps := Engine.get_frames_per_second()

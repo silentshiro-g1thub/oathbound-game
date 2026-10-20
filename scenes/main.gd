@@ -1,21 +1,48 @@
 extends Node3D
 
-@onready var main_menu = $CanvasLayer/PanelContainer
-@onready var address_entry = $CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/LineEdit
+const PlayerScene = preload("res://scenes/player/player.tscn")
+const RoomSessionScript = preload("res://multiplayer/room_session.gd")
 
-const Player = preload("res://scenes/player/player.tscn")
-const PORT = 9999
+@onready var main_menu: Control = $CanvasLayer/PanelContainer
+@onready var code_entry: LineEdit = $CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/LineEdit
+
 const SPAWN_SPACING: float = 2.0
-var enet_peer = ENetMultiplayerPeer.new()
+const JOIN_TIMEOUT: float = 20.0
+
 var connection_status: Label
+var session: RoomSession
 var joining: bool = false
 var join_elapsed: float = 0.0
-const JOIN_TIMEOUT: float = 12.0
+var join_direct_url: String = ""
+var relay_url: String = ""
+var room_code: String = ""
+var hosting: bool = false
+var in_room: bool = false
+var closing_room: bool = false
+var code_layer: CanvasLayer
+var code_label: Label
+var code_detail: Label
 
 
 func _ready() -> void:
+	relay_url = RoomProtocol.load_relay_url()
 	connection_status = Label.new()
-	address_entry.get_parent().add_child(connection_status)
+	connection_status.autowrap_mode = TextServer.AUTOWRAP_WORD
+	connection_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	connection_status.text = "Host creates a code. A friend on any network joins by typing it."
+	code_entry.get_parent().add_child(connection_status)
+	code_entry.max_length = 11
+	code_entry.text_submitted.connect(func(_text: String) -> void:
+		_on_button_2_pressed()
+	)
+	session = RoomSessionScript.new()
+	session.name = "RoomSession"
+	add_child(session)
+	session.hosted.connect(_on_hosted)
+	session.joined.connect(_on_joined)
+	session.failed.connect(_on_session_failed)
+	session.notice.connect(_on_notice)
+	_build_code_hud()
 	# Fires on every peer, so players and their dummies are cleaned up everywhere.
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
@@ -26,67 +53,56 @@ func _ready() -> void:
 func _on_button_pressed() -> void:
 	if joining:
 		return
-	enet_peer = ENetMultiplayerPeer.new() # fresh peer so re-hosting after a disconnect works
-	var error := enet_peer.create_server(PORT)
-	if error != OK:
-		_show_connection_error("Could not host: %s" % error_string(error))
+	host_room(-1, "", true)
+
+
+## Open a room. Tests can pin the port and code; players only see the code.
+func host_room(port: int = -1, fixed_code: String = "", publish: bool = true) -> void:
+	if joining:
 		return
-	main_menu.hide()
-	multiplayer.multiplayer_peer = enet_peer
-	if not multiplayer.peer_connected.is_connected(add_player):
-		multiplayer.peer_connected.connect(add_player)
-	add_player(multiplayer.get_unique_id())
-	_print_join_info()
+	var url := relay_url
+	if port > 0:
+		url = "ws://%s:%d" % [RoomProtocol.host_of(relay_url), port]
+	joining = true
+	join_elapsed = 0.0
+	_set_join_buttons_disabled(true)
+	main_menu.show()
+	connection_status.text = "Creating room..."
+	session.host(url, fixed_code, publish)
+
 
 func _on_button_2_pressed() -> void:
 	if joining:
 		return
-	# Blank means localhost for testing on one machine.
-	var address: String = address_entry.text.strip_edges()
-	if address.is_empty():
-		address = "localhost"
-	var port := PORT
-	if address.contains(":"):
-		# Accept "ip:port" so a manually forwarded port can be used.
-		var parts := address.split(":")
-		address = parts[0]
-		if parts.size() > 1 and parts[1].is_valid_int():
-			port = int(parts[1])
-	enet_peer = ENetMultiplayerPeer.new()
-	var error := enet_peer.create_client(address, port)
-	if error != OK:
-		_show_connection_error("Could not join: %s" % error_string(error))
+	var code := RoomProtocol.normalize_code(code_entry.text)
+	if not RoomProtocol.valid_code(code):
+		_show_connection_error("Enter the 6-character room code.")
 		return
-	main_menu.show()
-	connection_status.text = "Connecting to %s:%d..." % [address, port]
 	joining = true
 	join_elapsed = 0.0
 	_set_join_buttons_disabled(true)
-	multiplayer.multiplayer_peer = enet_peer
+	main_menu.show()
+	connection_status.text = "Connecting to room %s..." % RoomProtocol.pretty_code(code)
+	session.join(code, join_direct_url, relay_url)
 
 
 ## Keep connection progress visible until the local player has actually spawned.
 func _process(delta: float) -> void:
 	if not joining:
 		return
-
 	join_elapsed += delta
-	if enet_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		var local_player := get_node_or_null(str(multiplayer.get_unique_id()))
-		if local_player and local_player.is_node_ready() and local_player.camera.current:
-			joining = false
-			_set_join_buttons_disabled(false)
-			main_menu.hide()
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-			return
-
+	if _local_player_ready():
+		joining = false
+		_set_join_buttons_disabled(false)
+		main_menu.hide()
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		return
 	if join_elapsed >= JOIN_TIMEOUT:
-		var connected := enet_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
-		_on_server_disconnected()
+		var connected := session.peer != null and session.peer.is_live()
 		_show_connection_error(
 			"Connected, but no player spawned. Both players need the same game version."
 			if connected else
-			"Connection timed out. Check the host IP, firewall, and UDP 9999 forwarding."
+			"Connection timed out. Check the room code and that the host is still in the game."
 		)
 
 
@@ -97,31 +113,119 @@ func _on_connected_to_server() -> void:
 		connection_status.text = "Connected. Waiting for your player..."
 
 
+func _on_hosted(peer_id: int, code: String) -> void:
+	if in_room:
+		return
+	_attach_peer()
+	in_room = true
+	hosting = true
+	joining = false
+	room_code = code
+	_set_host_spawn(true)
+	_set_join_buttons_disabled(false)
+	main_menu.hide()
+	_show_room(code)
+	add_player(peer_id)
+	print("Room code: %s" % code)
+
+
+func _on_joined(peer_id: int, code: String) -> void:
+	if in_room:
+		return
+	_attach_peer()
+	in_room = true
+	hosting = false
+	room_code = code
+	_set_host_spawn(false)
+	_show_room(code)
+	join_elapsed = 0.0
+	connection_status.text = "Connected. Waiting for your player..."
+	# peer_id is assigned by the relay; the host spawns that player for us.
+	if peer_id <= 0:
+		_show_connection_error("Could not join that room.")
+
+
+func _on_session_failed(message: String) -> void:
+	if not joining or in_room:
+		return
+	_show_connection_error(message)
+
+
+func _on_notice(text: String) -> void:
+	print(text)
+	if code_detail:
+		code_detail.text = text
+	if main_menu.visible:
+		connection_status.text = text
+
+
+func _attach_peer() -> void:
+	if session.peer == null:
+		return
+	if multiplayer.multiplayer_peer != session.peer:
+		multiplayer.multiplayer_peer = session.peer
+	session.peer.mark_handed_off()
+
+
+func _set_host_spawn(enabled: bool) -> void:
+	var connected := multiplayer.peer_connected.is_connected(add_player)
+	if enabled and not connected:
+		multiplayer.peer_connected.connect(add_player)
+	elif not enabled and connected:
+		multiplayer.peer_connected.disconnect(add_player)
+
+
 ## Prevent repeated connection attempts while the current attempt is pending.
 func _set_join_buttons_disabled(disabled: bool) -> void:
 	$CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button.disabled = disabled
 	$CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button2.disabled = disabled
 
-func add_player(peer_id):
-	var player =Player.instantiate()
+
+func add_player(peer_id: int) -> void:
+	if get_node_or_null(str(peer_id)):
+		return
+	var player := PlayerScene.instantiate()
 	player.name = str(peer_id)
 	# Players all spawn at the origin; space them so they don't stack inside each other.
 	player.position = Vector3((get_child_count() % 8) * SPAWN_SPACING, 2.0, 0)
 	add_child(player)
 
+
+func _local_player_ready() -> bool:
+	if not multiplayer.has_multiplayer_peer():
+		return false
+	if multiplayer.multiplayer_peer == null or multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
+		return false
+	var local_player := get_node_or_null(str(multiplayer.get_unique_id()))
+	return local_player != null and local_player.is_node_ready() and local_player.camera.current
+
+
 func _on_connection_failed() -> void:
-	# Clear the failed peer so retrying with another address works.
-	multiplayer.multiplayer_peer = null
-	_show_connection_error("Connection failed. Check the host address and UDP port.")
+	_show_connection_error("Could not join that room. Check the code and try again.")
+
 
 func _show_connection_error(message: String) -> void:
+	if closing_room:
+		return
+	closing_room = true
 	joining = false
+	in_room = false
+	hosting = false
+	room_code = ""
+	_set_host_spawn(false)
+	_set_room_hud("")
 	_set_join_buttons_disabled(false)
+	if session:
+		session.shutdown()
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer = null
 	main_menu.show()
 	connection_status.text = message
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	$MenuCamera.make_current()
 	$Floor/MeshInstance3D/Terrain3D.set_camera($MenuCamera)
+	closing_room = false
+
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	var player := get_node_or_null(str(peer_id))
@@ -134,40 +238,79 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func _on_server_disconnected() -> void:
-	# Host left: tear down the session and return to the menu.
-	multiplayer.multiplayer_peer = null
-	_show_connection_error("Disconnected from the host.")
+	# Host left, or our own relay socket closed: tear down and return to the menu.
+	var own_room := hosting
+	_show_connection_error("The room closed." if own_room else "Disconnected from the host.")
 	for child in get_children():
 		# Players are CharacterBody3D; dummies are in the "dummy" group. The Floor is neither.
 		if child is CharacterBody3D or child.is_in_group("dummy"):
 			child.queue_free()
 	main_menu.show()
 
-func _print_join_info() -> void:
-	# UPnP is off the table; print the addresses so one can be typed into Join.
-	print("Hosting on UDP %d. Friend types one of these addresses:" % PORT)
-	var lan := _lan_addresses()
-	print("LAN / VPN addresses: %s" % (", ".join(lan) if not lan.is_empty() else "none"))
-	_fetch_public_ip()
 
-func _fetch_public_ip() -> void:
-	# Manual port forwarding still needs the public address it forwards to.
-	var http := HTTPRequest.new()
-	add_child(http)
-	http.request_completed.connect(func(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-		http.queue_free()
-		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-			return
-		var ip := body.get_string_from_utf8().strip_edges()
-		if not ip.is_empty():
-			print("Public IP: %s (works if UDP %d is forwarded on the router)" % [ip, PORT])
-	)
-	http.request("https://api.ipify.org")
+func _build_code_hud() -> void:
+	code_layer = CanvasLayer.new()
+	code_layer.name = "RoomCode"
+	code_layer.layer = 40
+	add_child(code_layer)
+	var root_control := Control.new()
+	root_control.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	code_layer.add_child(root_control)
+	code_label = Label.new()
+	code_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	code_label.offset_left = -220.0
+	code_label.offset_top = 12.0
+	code_label.offset_right = 220.0
+	code_label.offset_bottom = 52.0
+	code_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	code_label.add_theme_font_size_override("font_size", 32)
+	code_label.add_theme_color_override("font_color", Color.WHITE)
+	code_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	code_label.add_theme_constant_override("outline_size", 8)
+	root_control.add_child(code_label)
+	code_detail = Label.new()
+	code_detail.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	code_detail.offset_left = -360.0
+	code_detail.offset_top = 52.0
+	code_detail.offset_right = 360.0
+	code_detail.offset_bottom = 96.0
+	code_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code_detail.autowrap_mode = TextServer.AUTOWRAP_WORD
+	code_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	code_detail.add_theme_font_size_override("font_size", 16)
+	code_detail.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+	code_detail.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	code_detail.add_theme_constant_override("outline_size", 6)
+	root_control.add_child(code_detail)
+	code_layer.hide()
 
-func _lan_addresses() -> Array[String]:
-	var found: Array[String] = []
-	for address in IP.get_local_addresses():
-		if address.contains(":") or address.begins_with("127.") or address.begins_with("169.254."):
-			continue
-		found.append(address)
-	return found
+
+func _show_room(code: String) -> void:
+	_set_room_hud(code)
+	_copy_code(code)
+	if not OS.has_feature("headless"):
+		DisplayServer.window_set_title("Oathbound  |  %s" % RoomProtocol.pretty_code(code))
+
+
+func _set_room_hud(code: String) -> void:
+	if code_layer == null:
+		return
+	if code.is_empty():
+		code_layer.hide()
+		if not OS.has_feature("headless"):
+			DisplayServer.window_set_title(str(ProjectSettings.get_setting("application/config/name", "Oathbound")))
+		return
+	code_label.text = "ROOM  %s" % RoomProtocol.pretty_code(code)
+	if code_detail.text.is_empty():
+		code_detail.text = "Share this code."
+	code_layer.show()
+
+
+func _copy_code(code: String) -> void:
+	if OS.has_feature("headless"):
+		return
+	DisplayServer.clipboard_set(code)
+	if code_detail.text.is_empty() or code_detail.text == "Share this code.":
+		code_detail.text = "Code copied. Send it to your friend."
