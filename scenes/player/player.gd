@@ -97,26 +97,23 @@ func _enter_tree():
 	
 
 
-# INITIALIZATION
+@export_node_path("Node") var active_weapon_path: NodePath
+@onready var active_weapon: Node = get_node_or_null(active_weapon_path) if not active_weapon_path.is_empty() else null
+
+
+## Keep remote players visual-only; initialize the local player's camera, collision, controls, and HUD.
 func _ready() -> void:
 	if not is_multiplayer_authority():
-		# Remote copies are visual only: no collision (a spawned capsule overlapping
-		# the local player shoves it through the floor) and no physics simulation.
+		# Remote copies must not collide with or simulate alongside the local player.
 		collision_layer = 0
 		collision_mask = 0
 		if muzzle_flash:
 			muzzle_flash.visible = false
 		set_physics_process(false)
 		return
+
 	camera.current = true
-	# Each player owns its capsule so resizing one cannot resize another.
 
-@export_node_path("Node") var active_weapon_path: NodePath
-@onready var active_weapon: Node = get_node_or_null(active_weapon_path) if not active_weapon_path.is_empty() else null
-
-
-## Prepare a private collision capsule, capture the mouse, and set up the HUD.
-func _ready() -> void:
 	assert(body_collision.shape is CapsuleShape3D, "Movement requires a CapsuleShape3D")
 	body_collision.shape = body_collision.shape.duplicate()
 	standing_shape = body_collision.shape.duplicate()
@@ -546,7 +543,3 @@ func show_muzzle_flash() -> void:
 	muzzle_flash.rotation.z = randf_range(0.0, TAU) # random spin so it looks different each shot
 	await get_tree().create_timer(0.08).timeout
 	muzzle_flash.visible = false
-
-	
-	var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
-	head.position.y = move_toward(head.position.y, eye_height, camera_height_speed * delta)
