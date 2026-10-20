@@ -2,6 +2,7 @@ extends Control
 ## Lower-left health and resolve plates. They trail the camera look instead of sitting still.
 
 const CameraLag = preload("res://scenes/player/camera_lag.gd")
+const UI_FONT = preload("res://assets/fonts/SourceSans3-Regular.ttf")
 const SLANT := 18.0
 const HEALTH_HEIGHT := 34.0
 const RESOLVE_HEIGHT := 26.0
@@ -76,7 +77,7 @@ func _draw_meter(bounds: Rect2, current: int, maximum: int, label: String, plate
 	if ratio > 0.04:
 		var fill := fill_color if ratio > 0.3 else low_color
 		draw_colored_polygon(_plate(bounds, ratio, 3.0), fill)
-	var font := ThemeDB.fallback_font
+	var font := UI_FONT as Font
 	var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var text_position := Vector2(bounds.position.x + (bounds.size.x - text_size.x) * 0.5, bounds.position.y + (bounds.size.y + font.get_ascent(font_size)) * 0.5 - 1.0)
 	draw_string_outline(font, text_position, label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 4, Color(0.05, 0.01, 0.01, 0.9))

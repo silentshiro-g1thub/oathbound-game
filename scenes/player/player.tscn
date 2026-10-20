@@ -7,6 +7,7 @@
 [ext_resource type="AudioStream" path="res://assets/audio/gunshot.mp3" id="7_gunshot"]
 [ext_resource type="Script" uid="uid://dg7c2ts5pr0ko" path="res://scenes/weapons/revolver.gd" id="8_revolver"]
 [ext_resource type="Script" path="res://scenes/player/weapon_mount.gd" id="9_sway"]
+[ext_resource type="PackedScene" path="res://scenes/weapons/bagyo.tscn" id="10_bagyo"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sgp6g"]
 radius = 0.35
@@ -193,6 +194,8 @@ autoplay = false
 script = ExtResource("8_revolver")
 player_path = NodePath("../../../../..")
 
+[node name="Bagyo" parent="Head/Camera3D/WeaponMount" instance=ExtResource("10_bagyo")]
+visible = false
 
 [node name="RayCast3D" type="RayCast3D" parent="Head/Camera3D" unique_id=897496557]
 transform = Transform3D(0.9967546, 0.07426053, 0.031107182, 0.026428344, 0.06317823, -0.99765354, -0.07605155, 0.99523544, 0.06101042, 0.4043222, -0.20011008, -0.8195125)

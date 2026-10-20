@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 const DeveloperOverlay = preload("res://scenes/player/developer_overlay.gd")
 const HealthBar = preload("res://scenes/player/health_bar.gd")
+const WeaponMenu = preload("res://scenes/player/weapon_menu.gd")
 const Dummy = preload("res://scenes/dummy.gd")
 var dummy_counter: int = 0
 
@@ -76,6 +77,13 @@ var dash_launch_speed: float = 0.0
 var air_dash_available: bool = true
 
 var extra_jumps_remaining: int = 1
+var viewmodel_follow := 1.0
+var weapon_menu_open := false
+var rifle_owned := false
+var weapon_slot := 0
+var sidearm: Node
+var rifle: Node3D
+var weapon_menu: CanvasLayer
 
 var jump_timer: float = 0.0
 var jump_cut_applied: bool = true
@@ -91,9 +99,6 @@ var t_bob = 0.0
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var body_collision: CollisionShape3D = $CollisionShape3D
-@onready var animation_play: AnimationPlayer = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/AnimationPlayer")
-@onready var muzzle_flash: Node3D = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/Node3D")
-@onready var gunshot_audio: AudioStreamPlayer3D = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/GunshotAudio")
 
 #Guns
 @onready var crosshair: Control = get_node_or_null("../Node2D/TextureRect")
@@ -116,8 +121,6 @@ func _ready() -> void:
 		# Remote copies must not collide with or simulate alongside the local player.
 		collision_layer = 0
 		collision_mask = 0
-		if muzzle_flash:
-			muzzle_flash.visible = false
 		set_physics_process(false)
 		return
 
@@ -146,6 +149,13 @@ func _ready() -> void:
 	health_hud.add_child(health_bar)
 	health_bar.set_health(health, max_health)
 	health_bar.set_resolve(resolve, max_resolve)
+	sidearm = active_weapon
+	rifle = get_node_or_null("Head/Camera3D/WeaponMount/Bagyo")
+	if rifle and rifle.has_method("set_equipped"):
+		rifle.set_equipped(false)
+	weapon_menu = WeaponMenu.new()
+	weapon_menu.name = "WeaponMenu"
+	add_child(weapon_menu)
 
 	if OS.is_debug_build():
 		var developer_overlay := DeveloperOverlay.new()
@@ -184,14 +194,40 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not multiplayer.has_multiplayer_peer(): return
 	if not is_multiplayer_authority(): return
 	if event.is_action_pressed("ui_cancellation"):
-		_release_controls()
+		if weapon_menu_open:
+			_toggle_weapon_menu()
+		else:
+			_release_controls()
 		return
 	# Debug: F3 + 1 spawns a one-hit dummy where you stand (replicated to peers).
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+		if key == KEY_E:
+			_toggle_weapon_menu()
+			return
 		if key == KEY_1 and Input.is_physical_key_pressed(KEY_F3):
 			spawn_dummy.rpc(_dummy_spawn_position())
 			return
+		if weapon_menu_open:
+			if key == KEY_1:
+				select_weapon_slot(1)
+			elif key == KEY_2:
+				select_weapon_slot(2)
+			elif key == KEY_3:
+				select_weapon_slot(3)
+			return
+		if key == KEY_1:
+			select_weapon_slot(1)
+			return
+		if key == KEY_2:
+			select_weapon_slot(2)
+			return
+		if key == KEY_3:
+			select_weapon_slot(3)
+			return
+
+	if weapon_menu_open:
+		return
 
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -213,14 +249,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		play_shoot_effects.rpc()
 		_fire_hitscan()
 
-	if event.is_action_pressed("Shoot"):
-		_fire_active_weapon()
-
 
 ## Forward a shot only when the equipped node has a valid weapon script.
-func _fire_active_weapon() -> void:
+func _fire_active_weapon() -> bool:
 	if is_instance_valid(active_weapon) and active_weapon.has_method("try_fire"):
-		active_weapon.try_fire()
+		return bool(active_weapon.try_fire())
+	return false
 
 
 ## Use stronger gravity while falling than while rising.
@@ -508,18 +542,10 @@ func _process(delta: float) -> void:
 	if is_multiplayer_authority():
 		var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
 		head.position.y = move_toward(head.position.y, eye_height, camera_height_speed * delta)
-	# Weapon presentation never writes movement velocity. Remote copies stay
-	# processable so replicated Shot/idle animations still update.
-	if _shot_anim_active():
-		return
-	var animation := "move" if is_on_floor() and _horizontal_velocity().length() > 0.1 else "Idle"
-	if animation_play.current_animation != animation:
-		animation_play.play(animation)
+
 
 func _shot_anim_active() -> bool:
-	# A finished non-looping animation keeps its name in current_animation;
-	# is_playing() is the only reliable "still shooting" check.
-	return animation_play != null and animation_play.is_playing() and animation_play.current_animation == "Shot"
+	return is_instance_valid(active_weapon) and active_weapon.has_method("is_recoiling") and active_weapon.is_recoiling()
 
 const GUN_RANGE: float = 10000.0
 
@@ -552,22 +578,43 @@ func spawn_dummy(spawn_position: Vector3) -> void:
 
 @rpc("authority", "call_local")
 func play_shoot_effects() -> void:
-	if not animation_play:
-		return
-	animation_play.stop()
-	animation_play.play("Shot")
-	# The equipped weapon also owns this player, but its fire call bails once
-	# this Shot animation has started, so the gunshot has to start here.
-	if gunshot_audio and gunshot_audio.stream:
-		gunshot_audio.play()
-	# Direct call: this already runs on every peer, and a nested .rpc() from a
-	# remote copy would be rejected (only the authority may call RPCs here).
-	show_muzzle_flash()
+	_fire_active_weapon()
 
-func show_muzzle_flash() -> void:
-	if not muzzle_flash:
+
+func give_rifle() -> void:
+	rifle_owned = true
+	select_weapon_slot(1)
+
+
+func select_weapon_slot(slot: int) -> void:
+	if slot == 1 and not rifle_owned:
 		return
-	muzzle_flash.visible = true
-	muzzle_flash.rotation.z = randf_range(0.0, TAU) # random spin so it looks different each shot
-	await get_tree().create_timer(0.08).timeout
-	muzzle_flash.visible = false
+	weapon_slot = slot
+	var show_rifle := slot == 1 and rifle_owned
+	var show_sidearm := slot == 0
+	if sidearm and sidearm.has_method("set_equipped"):
+		sidearm.set_equipped(show_sidearm)
+	if rifle and rifle.has_method("set_equipped"):
+		rifle.set_equipped(show_rifle)
+	if show_rifle:
+		active_weapon = rifle
+	elif show_sidearm:
+		active_weapon = sidearm
+	else:
+		active_weapon = null
+		viewmodel_follow = 1.0
+	if weapon_menu and weapon_menu.has_method("refresh_slots"):
+		weapon_menu.refresh_slots()
+
+
+func _toggle_weapon_menu() -> void:
+	weapon_menu_open = not weapon_menu_open
+	if weapon_menu:
+		weapon_menu.visible = weapon_menu_open
+		weapon_menu.refresh_slots()
+	if weapon_menu_open:
+		controls_active = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		controls_active = true
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

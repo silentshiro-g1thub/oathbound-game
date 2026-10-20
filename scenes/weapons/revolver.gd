@@ -1,8 +1,11 @@
 extends Node
+## Revolver controller. Owns revolver animations, recoil check, gunshot audio,
+## muzzle flash, and viewmodel visibility.
 
 @export_node_path("CharacterBody3D") var player_path: NodePath
 
 @onready var player: CharacterBody3D = get_node(player_path)
+@onready var model_root: Node3D = get_parent() as Node3D
 @onready var animation_play: AnimationPlayer = get_node_or_null("../AnimationPlayer")
 @onready var muzzle_flash: Node3D = get_node_or_null("../Node3D")
 @onready var revolver_sfx: AudioStreamPlayer3D = get_node_or_null("../GunshotAudio")
@@ -20,9 +23,26 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_center_crosshairs)
 
 
+## Show or hide the revolver model when equipped or holstered.
+func set_equipped(equipped: bool) -> void:
+	if model_root:
+		model_root.visible = equipped
+	if not equipped and muzzle_flash:
+		muzzle_flash.visible = false
+	if equipped and player:
+		player.viewmodel_follow = 1.0
+
+
+## True while the non-looping Shot animation is actively playing.
+func is_recoiling() -> bool:
+	return animation_play != null and animation_play.is_playing() and animation_play.current_animation == "Shot"
+
+
 ## Animate the held revolver from player movement without interrupting recoil.
 func _process(_delta: float) -> void:
-	if player.active_weapon != self or not animation_play or animation_play.current_animation == "Shot":
+	if not player or not player.multiplayer.has_multiplayer_peer():
+		return
+	if player.active_weapon != self or not animation_play or is_recoiling():
 		return
 
 	var horizontal_speed := Vector2(player.velocity.x, player.velocity.z).length()
@@ -40,14 +60,20 @@ func _center_crosshairs() -> void:
 
 
 ## Play animation, flash, and audio together for an accepted shot; ignore repeat requests during recoil.
-func try_fire() -> void:
-	if player.active_weapon != self or not animation_play or animation_play.current_animation == "Shot":
-		return
+func try_fire() -> bool:
+	if not player or player.active_weapon != self or not animation_play or is_recoiling():
+		return false
 	animation_play.stop()
 	animation_play.play("Shot")
-	if revolver_sfx:
+	if revolver_sfx and revolver_sfx.stream:
 		revolver_sfx.play()
 	show_muzzle_flash()
+	return true
+
+
+## Alias used by player RPCs so every weapon shares the same fire entry point.
+func play_fire_effects() -> bool:
+	return try_fire()
 
 
 ## Show a briefly rotated muzzle flash, then hide it after the effect duration.
@@ -57,4 +83,5 @@ func show_muzzle_flash() -> void:
 	muzzle_flash.visible = true
 	muzzle_flash.rotation.z = randf_range(0.0, TAU)
 	await get_tree().create_timer(0.08).timeout
-	muzzle_flash.visible = false
+	if is_instance_valid(muzzle_flash):
+		muzzle_flash.visible = false

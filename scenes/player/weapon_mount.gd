@@ -35,5 +35,8 @@ func _process(delta: float) -> void:
 	var step: Dictionary = CameraLag.advance(_camera, _previous, _lag, delta, look_strength, max_offset, settle_rate)
 	_previous = step.previous
 	_lag = step.lag
-	position = _rest_position + Vector3(_lag.x, _lag.y, 0.0)
-	rotation = _rest_rotation + Vector3(_lag.y * tilt, -_lag.x * tilt, _lag.x * 0.7)
+	var follow := 1.0
+	if _player != null and _player.get("viewmodel_follow") != null:
+		follow = float(_player.viewmodel_follow)
+	position = _rest_position + Vector3(_lag.x * follow, _lag.y * follow, 0.0)
+	rotation = _rest_rotation + Vector3(_lag.y * tilt * follow, -_lag.x * tilt * follow, _lag.x * 0.7 * follow)

@@ -73,6 +73,10 @@ dash={
 ]
 }
 
+[gui]
+
+theme/custom_font="res://assets/fonts/SourceSans3-Regular.ttf"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
