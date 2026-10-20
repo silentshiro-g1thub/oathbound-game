@@ -1,0 +1,122 @@
+[
+  {
+    "weapon": "bagyo",
+    "event": "fire",
+    "seconds": 1.35
+  },
+  {
+    "weapon": "bagyo",
+    "event": "reload",
+    "seconds": 1.8
+  },
+  {
+    "weapon": "bagyo",
+    "event": "dry_fire",
+    "seconds": 0.35
+  },
+  {
+    "weapon": "baga",
+    "event": "fire",
+    "seconds": 1.35
+  },
+  {
+    "weapon": "baga",
+    "event": "reload",
+    "seconds": 1.8
+  },
+  {
+    "weapon": "baga",
+    "event": "dry_fire",
+    "seconds": 0.35
+  },
+  {
+    "weapon": "tanod",
+    "event": "fire",
+    "seconds": 1.35
+  },
+  {
+    "weapon": "tanod",
+    "event": "reload",
+    "seconds": 1.8
+  },
+  {
+    "weapon": "tanod",
+    "event": "dry_fire",
+    "seconds": 0.35
+  },
+  {
+    "weapon": "hatol",
+    "event": "fire",
+    "seconds": 1.35
+  },
+  {
+    "weapon": "hatol",
+    "event": "reload",
+    "seconds": 1.8
+  },
+  {
+    "weapon": "hatol",
+    "event": "dry_fire",
+    "seconds": 0.35
+  },
+  {
+    "weapon": "daluyong",
+    "event": "swing",
+    "seconds": 1.2
+  },
+  {
+    "weapon": "daluyong",
+    "event": "impact",
+    "seconds": 1.4
+  },
+  {
+    "weapon": "daluyong",
+    "event": "draw",
+    "seconds": 1.3
+  },
+  {
+    "weapon": "silakbo",
+    "event": "swing",
+    "seconds": 1.2
+  },
+  {
+    "weapon": "silakbo",
+    "event": "impact",
+    "seconds": 1.4
+  },
+  {
+    "weapon": "silakbo",
+    "event": "draw",
+    "seconds": 1.3
+  },
+  {
+    "weapon": "salin",
+    "event": "swing",
+    "seconds": 1.2
+  },
+  {
+    "weapon": "salin",
+    "event": "impact",
+    "seconds": 1.4
+  },
+  {
+    "weapon": "salin",
+    "event": "draw",
+    "seconds": 1.3
+  },
+  {
+    "weapon": "tinig",
+    "event": "swing",
+    "seconds": 1.2
+  },
+  {
+    "weapon": "tinig",
+    "event": "impact",
+    "seconds": 1.4
+  },
+  {
+    "weapon": "tinig",
+    "event": "draw",
+    "seconds": 1.3
+  }
+]

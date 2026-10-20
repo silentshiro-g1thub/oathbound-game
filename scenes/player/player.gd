@@ -40,6 +40,8 @@ var dummy_counter: int = 0
 @export_group("Health")
 @export var max_health: int = 200
 var health: int = 200
+@export var max_resolve: int = 50
+var resolve: int = 50
 
 @export_group("Double Jump")
 @export var double_jump_velocity: float = 8.5
@@ -89,8 +91,9 @@ var t_bob = 0.0
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var body_collision: CollisionShape3D = $CollisionShape3D
-@onready var animation_play: AnimationPlayer = get_node_or_null("Head/Camera3D/Manurhin MR93/AnimationPlayer")
-@onready var muzzle_flash: Node3D = get_node_or_null("Head/Camera3D/Manurhin MR93/Node3D")
+@onready var animation_play: AnimationPlayer = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/AnimationPlayer")
+@onready var muzzle_flash: Node3D = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/Node3D")
+@onready var gunshot_audio: AudioStreamPlayer3D = get_node_or_null("Head/Camera3D/WeaponMount/Manurhin MR93/GunshotAudio")
 
 #Guns
 @onready var crosshair: Control = get_node_or_null("../Node2D/TextureRect")
@@ -133,6 +136,7 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 	health = max_health
+	resolve = max_resolve
 	var health_hud := CanvasLayer.new()
 	health_hud.name = "HealthHud"
 	health_hud.layer = 20
@@ -141,6 +145,7 @@ func _ready() -> void:
 	health_bar.name = "HealthBar"
 	health_hud.add_child(health_bar)
 	health_bar.set_health(health, max_health)
+	health_bar.set_resolve(resolve, max_resolve)
 
 	if OS.is_debug_build():
 		var developer_overlay := DeveloperOverlay.new()
@@ -551,6 +556,10 @@ func play_shoot_effects() -> void:
 		return
 	animation_play.stop()
 	animation_play.play("Shot")
+	# The equipped weapon also owns this player, but its fire call bails once
+	# this Shot animation has started, so the gunshot has to start here.
+	if gunshot_audio and gunshot_audio.stream:
+		gunshot_audio.play()
 	# Direct call: this already runs on every peer, and a nested .rpc() from a
 	# remote copy would be rejected (only the authority may call RPCs here).
 	show_muzzle_flash()
