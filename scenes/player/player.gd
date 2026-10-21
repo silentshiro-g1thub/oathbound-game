@@ -43,6 +43,9 @@ var dummy_counter: int = 0
 var health: int = 200
 @export var max_resolve: int = 50
 var resolve: int = 50
+var team: int = 0
+var flag_speed_scale: float = 1.0
+var _health_bar: Node
 
 @export_group("Double Jump")
 @export var double_jump_velocity: float = 8.5
@@ -105,7 +108,7 @@ var t_bob = 0.0
 @onready var crosshair_hit: Control = get_node_or_null("../Node2D/TextureRect2")
 
 func _enter_tree():
-	
+	add_to_group("players")
 	if str(name).is_valid_int():
 		set_multiplayer_authority(str(name).to_int())
 	
@@ -149,6 +152,7 @@ func _ready() -> void:
 	health_hud.add_child(health_bar)
 	health_bar.set_health(health, max_health)
 	health_bar.set_resolve(resolve, max_resolve)
+	_health_bar = health_bar
 	sidearm = active_weapon
 	rifle = get_node_or_null("Head/Camera3D/WeaponMount/Bagyo")
 	if rifle and rifle.has_method("set_equipped"):
@@ -161,6 +165,40 @@ func _ready() -> void:
 		var developer_overlay := DeveloperOverlay.new()
 		developer_overlay.name = "DeveloperOverlay"
 		add_child(developer_overlay)
+
+
+## Restore HP from a flag zone. Does not deal damage.
+@rpc("any_peer", "unreliable")
+func apply_heal(amount: int) -> void:
+	if amount <= 0:
+		return
+	if multiplayer.has_multiplayer_peer():
+		var sender := multiplayer.get_remote_sender_id()
+		if sender != 0 and sender != 1:
+			return
+		if sender != 0 and not is_multiplayer_authority():
+			return
+	health = mini(max_health, health + amount)
+	_push_health_bar()
+
+
+## Mark this player down and drop a flag they are holding. Does not apply damage.
+func mark_defeated() -> void:
+	health = 0
+	_push_health_bar()
+	var flags := get_tree().get_first_node_in_group("flag_match") if is_inside_tree() else null
+	if flags == null or not flags.has_method("notify_carrier_down"):
+		return
+	var peer_id := int(str(name)) if str(name).is_valid_int() else 0
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		flags.notify_carrier_down.rpc_id(1, peer_id)
+	else:
+		flags.notify_carrier_down(peer_id)
+
+
+func _push_health_bar() -> void:
+	if _health_bar and _health_bar.has_method("set_health"):
+		_health_bar.set_health(health, max_health)
 
 
 ## Release gameplay controls when the game loses focus.
@@ -432,6 +470,7 @@ func _move_horizontal(direction: Vector3, sprinting: bool, delta: float) -> void
 
 	if is_crouched:
 		target_speed = crouch_speed
+	target_speed *= flag_speed_scale
 
 	if is_on_floor() and velocity.y <= 0.0:
 		var acceleration := ground_deceleration if direction.is_zero_approx() else ground_acceleration
