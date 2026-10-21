@@ -1,11 +1,9 @@
 [gd_scene format=3 uid="uid://cfnel0kfbafxs"]
 
-[ext_resource type="Script" uid="uid://dpphoip7o2kgk" path="res://scenes/player/player.gd" id="1_o5qli"]
+[ext_resource type="Script" uid="uid://dbqka0ikf65fn" path="res://scenes/main.gd" id="1_jyhfs"]
 [ext_resource type="Terrain3DAssets" uid="uid://uk3u5yeldjap" path="res://new_terrain_3d_assets.tres" id="1_sugp2"]
-[ext_resource type="Texture2D" uid="uid://y8cvu247fh4l" path="res://Sample assets/crosshair.png" id="1_tbgi4"]
-[ext_resource type="PackedScene" uid="uid://bnc8ypkun27a" path="res://Manurhin MR93.fbx" id="2_0wfyh"]
-[ext_resource type="Texture2D" uid="uid://dwcffe7jx6ply" path="res://Sample assets/crosshair hit.png" id="2_tefeu"]
-[ext_resource type="Texture2D" uid="uid://bclb3eq0i4m20" path="res://Sample assets/muzzleflash.png" id="4_jyhfs"]
+[ext_resource type="Texture2D" uid="uid://y8cvu247fh4l" path="res://assets/prototype_textures/crosshair.png" id="1_tbgi4"]
+[ext_resource type="Texture2D" uid="uid://dwcffe7jx6ply" path="res://assets/prototype_textures/crosshair hit.png" id="2_tefeu"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o5qli"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -66,128 +64,12 @@ _shader_parameters = {
 [sub_resource type="BoxShape3D" id="BoxShape3D_8tdgb"]
 size = Vector3(30, 1, 30)
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sgp6g"]
-radius = 0.35
-height = 1.8
-
-[sub_resource type="QuadMesh" id="QuadMesh_1vivr"]
-size = Vector2(0.2, 0.2)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8vrlf"]
-blend_mode = 1
-shading_mode = 0
-albedo_texture = ExtResource("4_jyhfs")
-billboard_mode = 1
-
-[sub_resource type="Animation" id="Animation_0wfyh"]
-resource_name = "Idle"
-length = 3.0000000000000004
-loop_mode = 1
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath(".:position")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 1.59),
-"transitions": PackedFloat32Array(-2, -2),
-"update": 0,
-"values": [Vector3(0.4, -0.25, -0.40124094), Vector3(0.40033337, -0.34280264, -0.4016101)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath(".:rotation")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
-"times": PackedFloat32Array(0, 1.59),
-"transitions": PackedFloat32Array(-2, -2),
-"update": 0,
-"values": [Vector3(0, 1.7043864, 0), Vector3(0.29620263, 1.6223295, -0.2726274)]
-}
-
-[sub_resource type="Animation" id="Animation_sugp2"]
-length = 0.001
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath(".:position")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector3(0.4, -0.25, -0.40124094)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath(".:rotation")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector3(0, 1.7043864, 0)]
-}
-
-[sub_resource type="Animation" id="Animation_jyhfs"]
-resource_name = "Shot"
-length = 0.4
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath(".:position")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.4),
-"transitions": PackedFloat32Array(0.5, 1),
-"update": 0,
-"values": [Vector3(0.40000018, -0.17492771, -0.41383353), Vector3(0.4, -0.25, -0.40124094)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath(".:rotation")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.4),
-"transitions": PackedFloat32Array(0.5, 1),
-"update": 0,
-"values": [Vector3(-0.02981019, 1.7029358, 0.1721458), Vector3(0, 1.7043864, 0)]
-}
-
-[sub_resource type="Animation" id="Animation_tbgi4"]
-resource_name = "move"
-loop_mode = 1
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath(".:position")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.24, 0.4901, 0.75),
-"transitions": PackedFloat32Array(0.5, 2, 0.5, 2),
-"update": 0,
-"values": [Vector3(0.4, -0.25, -0.40124094), Vector3(0.2755783, -0.154948, -0.422074), Vector3(0.4, -0.25, -0.40124094), Vector3(0.48365092, -0.10903466, -0.42159942)]
-}
-
-[sub_resource type="AnimationLibrary" id="AnimationLibrary_jyhfs"]
-_data = {
-&"Idle": SubResource("Animation_0wfyh"),
-&"RESET": SubResource("Animation_sugp2"),
-&"Shot": SubResource("Animation_jyhfs"),
-&"move": SubResource("Animation_tbgi4")
-}
-
 [node name="MAIN" type="Node3D" unique_id=1845102423]
+script = ExtResource("1_jyhfs")
+
+[node name="MenuCamera" type="Camera3D" parent="."]
+position = Vector3(0, 3, 8)
+current = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=781676762]
 environment = SubResource("Environment_sugp2")
@@ -197,11 +79,13 @@ environment = SubResource("Environment_sugp2")
 [node name="TextureRect" type="TextureRect" parent="Node2D" unique_id=854168762]
 offset_right = 40.0
 offset_bottom = 40.0
+mouse_filter = 2
 texture = ExtResource("1_tbgi4")
 
 [node name="TextureRect2" type="TextureRect" parent="Node2D" unique_id=834360040]
 offset_right = 40.0
 offset_bottom = 40.0
+mouse_filter = 2
 texture = ExtResource("2_tefeu")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=2121046835]
@@ -216,10 +100,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 mesh = SubResource("BoxMesh_8tdgb")
 
 [node name="Terrain3D" type="Terrain3D" parent="Floor/MeshInstance3D" unique_id=1680630428]
-data_directory = "res://Terrain"
+data_directory = "res://terrain_data"
 material = SubResource("Terrain3DMaterial_85g3d")
 assets = ExtResource("1_sugp2")
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 top_level = true
 metadata/_edit_lock_ = true
 
@@ -227,43 +110,101 @@ metadata/_edit_lock_ = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_8tdgb")
 
-[node name="Player" type="CharacterBody3D" parent="." unique_id=2135195726]
-script = ExtResource("1_o5qli")
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1333351573]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=1255270209]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
-shape = SubResource("CapsuleShape3D_sgp6g")
+[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer" unique_id=1235967992]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 414.0
+offset_top = 223.0
+offset_right = -414.0
+offset_bottom = -223.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="Head" type="Node3D" parent="Player" unique_id=791013896]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/PanelContainer" unique_id=649945134]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
 
-[node name="Camera3D" type="Camera3D" parent="Player/Head" unique_id=165562599]
-transform = Transform3D(0.99925, 0.006405959, 0.038189895, 0, 0.9862218, -0.16542847, -0.038723435, 0.16530441, 0.9854821, -1.4901161e-08, 1.1920929e-07, 0)
-current = true
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/PanelContainer/MarginContainer" unique_id=369595712]
+layout_mode = 2
+theme_override_constants/separation = 15
 
-[node name="Manurhin MR93" parent="Player/Head/Camera3D" unique_id=1766926507 instance=ExtResource("2_0wfyh")]
-transform = Transform3D(-0.0133193135, 0, 0.09910907, 0, 0.10000006, 0, -0.09910909, 0, -0.01331931, 0.4, -0.25, -0.40124094)
+[node name="Label" type="Label" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1453998916]
+layout_mode = 2
+text = "Main Menu"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Node3D" type="Node3D" parent="Player/Head/Camera3D/Manurhin MR93" unique_id=1645524167]
-transform = Transform3D(9.999999, 8.34465e-07, -3.5762787e-07, -1.5497208e-06, 10.000009, 2.9802322e-08, 2.2649765e-06, -3.5762787e-07, 9.999995, 2.5396428, 0.779912, -0.057289124)
+[node name="NameEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "Display name"
+alignment = 1
 
-[node name="OmniLight3D" type="OmniLight3D" parent="Player/Head/Camera3D/Manurhin MR93/Node3D" unique_id=986032498]
-transform = Transform3D(0.7942181, -0.6068013, -0.031757876, 0.6063366, 0.78803194, 0.10657756, -0.039645366, -0.103901885, 0.9937971, 0.02318424, -0.009971619, 0.27381685)
-light_color = Color(0.793979, 0.5042876, 0.026127875, 1)
-light_energy = 3.0
-omni_range = 4.0
+[node name="Button" type="Button" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1562118403]
+layout_mode = 2
+text = "Host"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Player/Head/Camera3D/Manurhin MR93/Node3D" unique_id=886556407]
-transform = Transform3D(1, -7.4505806e-08, 1.6391277e-07, 0, 1.000002, -1.6763806e-08, 1.6391277e-07, 2.2351742e-08, 1.0000005, -0.015786171, 0.007971406, 0.017951995)
-mesh = SubResource("QuadMesh_1vivr")
-surface_material_override/0 = SubResource("StandardMaterial3D_8vrlf")
+[node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
+layout_mode = 2
+placeholder_text = "Join code"
+alignment = 1
+max_length = 6
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Player/Head/Camera3D/Manurhin MR93" unique_id=1652385443]
-libraries/ = SubResource("AnimationLibrary_jyhfs")
-autoplay = &"Idle"
-playback_default_blend_time = 0.05
+[node name="Button2" type="Button" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1976433115]
+layout_mode = 2
+text = "Join"
 
-[node name="RayCast3D" type="RayCast3D" parent="Player/Head/Camera3D" unique_id=897496557]
-transform = Transform3D(0.9967546, 0.07426053, 0.031107182, 0.026428344, 0.06317823, -0.99765354, -0.07605155, 0.99523544, 0.06101042, 0.4043222, -0.20011008, -0.8195125)
-collision_mask = 2
-collide_with_areas = true
+[node name="LobbyPanel" type="PanelContainer" parent="CanvasLayer"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 414.0
+offset_top = 223.0
+offset_right = -414.0
+offset_bottom = -223.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LobbyPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LobbyPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="CodeLabel" type="Label" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Code:"
+horizontal_alignment = 1
+
+[node name="PlayersLabel" type="Label" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Crew:"
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Start"
+
+[node name="LeaveButton" type="Button" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Leave"
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]
+_spawnable_scenes = PackedStringArray("uid://vq0ffduaoidq")
+spawn_path = NodePath("..")
+
+[connection signal="pressed" from="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button" to="." method="_on_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button2" to="." method="_on_button_2_pressed"]
+[connection signal="pressed" from="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer/LeaveButton" to="." method="_on_leave_button_pressed"]

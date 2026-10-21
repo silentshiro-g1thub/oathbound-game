@@ -1,9 +1,9 @@
 [gd_resource type="Terrain3DAssets" format=3 uid="uid://uk3u5yeldjap"]
 
-[ext_resource type="Texture2D" uid="uid://6uo1erj7gsj8" path="res://Sample assets/sampletexture.jpg" id="1_wj2b0"]
-[ext_resource type="Texture2D" uid="uid://d1d7jaaatndgt" path="res://Sample assets/NormalMap.png" id="2_h0205"]
-[ext_resource type="Texture2D" uid="uid://5bka0w1gsldd" path="res://Sample assets/sampletexture2.jpg" id="3_be6xf"]
-[ext_resource type="Texture2D" uid="uid://cfeky3voe6td4" path="res://Sample assets/NormalMap2.png" id="4_bdvu2"]
+[ext_resource type="Texture2D" uid="uid://6uo1erj7gsj8" path="res://assets/prototype_textures/sampletexture.jpg" id="1_wj2b0"]
+[ext_resource type="Texture2D" uid="uid://d1d7jaaatndgt" path="res://assets/prototype_textures/NormalMap.png" id="2_h0205"]
+[ext_resource type="Texture2D" uid="uid://5bka0w1gsldd" path="res://assets/prototype_textures/sampletexture2.jpg" id="3_be6xf"]
+[ext_resource type="Texture2D" uid="uid://cfeky3voe6td4" path="res://assets/prototype_textures/NormalMap2.png" id="4_bdvu2"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_choun"]
 transparency = 4
