@@ -82,7 +82,8 @@ func _process(_delta: float) -> void:
 		_respawn()
 	var developer_overlay := player.get_node_or_null("DeveloperOverlay")
 	status.visible = developer_overlay == null or not developer_overlay.panel.visible
-	status.text = "MOVEMENT PRACTICE | Backspace: reset | R: reload | F3: developer overlay\nEsc: release mouse | Click: recapture\nWASD: move | Shift: sprint | Ctrl: crouch/slide | WASD+Q: dash | Space: jumps | RMB: aim\nState: %s | Clip: %s | Speed: %.1f m/s | Extra jump: %d | Dash ready in: %.2fs\nCrouched: %s" % [
+	status.text = "MOVEMENT PRACTICE | Backspace: reset | ;: camera | R: reload | F3: developer overlay\nEsc: release mouse | Click: recapture\nWASD: move | Shift: sprint | Ctrl: crouch/slide | WASD+Q: dash | Space: jumps | RMB: aim\nView: %s | State: %s | Clip: %s | Speed: %.1f m/s | Extra jump: %d | Dash ready in: %.2fs\nCrouched: %s" % [
+		"3rd" if player.third_person else "1st",
 		player.MovementState.keys()[player.movement_state], player.clip_from_id(player.body_clip),
 		player._horizontal_velocity().length(),
 		player.extra_jumps_remaining, player.dash_cooldown_remaining,

@@ -83,6 +83,8 @@ const BODY_CLIPS: PackedStringArray = [
 	"Slide", "Dash", "Walk_Forward", "Walk_Back", "Walk_Left", "Walk_Right",
 	"Walk_ForwardLeft", "Walk_ForwardRight", "Walk_BackLeft", "Walk_BackRight",
 ]
+const THIRD_PERSON_OFFSET := Vector3(0.55, 0.35, 2.5)
+var third_person := false
 var body_clip: int = 0
 var body_token: int = 0
 var _body_lock_until: float = 0.0
@@ -138,10 +140,7 @@ func _ready() -> void:
 		return
 
 	camera.current = true
-	camera.position = Vector3(0.55, 0.35, 2.5)
-	var local_mount := get_node_or_null("Head/Camera3D/WeaponMount")
-	if local_mount:
-		local_mount.visible = false
+	_apply_camera_view()
 	var terrain := get_parent().find_child("Terrain3D", true, false)
 	if terrain and terrain.has_method("set_camera"):
 		terrain.set_camera(camera)
@@ -219,6 +218,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Debug: F3 + 1 spawns a one-hit dummy where you stand (replicated to peers).
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: int = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+		if key == KEY_SEMICOLON:
+			third_person = not third_person
+			_apply_camera_view()
+			get_viewport().set_input_as_handled()
+			return
 		if key == KEY_E:
 			_toggle_weapon_menu()
 			return
@@ -293,7 +297,8 @@ func _physics_process(delta: float) -> void:
 	## Handles headbobbing
 	t_bob += delta * velocity.length() * float(is_on_floor())
 	# Sit behind the hunter so the body clips are on screen. +Z is behind the look direction.
-	camera.position = Vector3(0.55, 0.35, 2.5) + _headbob(t_bob)
+	var view_offset := THIRD_PERSON_OFFSET if third_person else Vector3.ZERO
+	camera.position = view_offset + _headbob(t_bob)
 
 	var input_dir := Vector2.ZERO
 
@@ -617,6 +622,19 @@ func clip_from_id(clip_id: int) -> String:
 	if clip_id < 0 or clip_id >= BODY_CLIPS.size():
 		return "Idle"
 	return BODY_CLIPS[clip_id]
+
+
+## First person keeps the gun and hides your own hunter. Third person shows the hunter from behind.
+func _apply_camera_view() -> void:
+	var mount := get_node_or_null("Head/Camera3D/WeaponMount")
+	if mount:
+		mount.visible = not third_person
+	if third_person:
+		camera.cull_mask |= 2
+	else:
+		camera.cull_mask &= ~2
+	var view_offset := THIRD_PERSON_OFFSET if third_person else Vector3.ZERO
+	camera.position = view_offset
 
 
 func _update_body_clip() -> void:

@@ -30,6 +30,8 @@ func _ready() -> void:
 		push_error("Hunter body is missing an AnimationPlayer.")
 		return
 	_apply_loop_modes()
+	if _player and _player.is_multiplayer_authority():
+		_assign_layer(self, 2)
 	play_clip("Idle", true)
 
 
@@ -73,6 +75,13 @@ func _apply_loop_modes() -> void:
 			copy.loop_mode = Animation.LOOP_LINEAR if LOOPING.has(anim_name) else Animation.LOOP_NONE
 			library.remove_animation(anim_name)
 			library.add_animation(anim_name, copy)
+
+
+func _assign_layer(node: Node, layers: int) -> void:
+	if node is VisualInstance3D:
+		node.layers = layers
+	for child in node.get_children():
+		_assign_layer(child, layers)
 
 
 func _find_animation_player(node: Node) -> AnimationPlayer:

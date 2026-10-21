@@ -38,7 +38,15 @@ func _run() -> void:
 	root.add_child(remote)
 	await process_frame
 	assert(remote.get_node("Head/Camera3D/WeaponMount").visible == false)
+	assert(player.get_node("Head/Camera3D/WeaponMount").visible == true)
+	player.third_person = true
+	player._apply_camera_view()
 	assert(player.get_node("Head/Camera3D/WeaponMount").visible == false)
+	assert(player.camera.position.z > 2.0)
+	player.third_person = false
+	player._apply_camera_view()
+	assert(player.get_node("Head/Camera3D/WeaponMount").visible == true)
+	assert((player.camera.cull_mask & 2) == 0)
 	var head_y: float = (skeleton.global_transform * skeleton.get_bone_global_rest(skeleton.find_bone("Head")).origin).y
 	var foot_y: float = (skeleton.global_transform * skeleton.get_bone_global_rest(skeleton.find_bone("LeftFoot")).origin).y
 	assert(head_y - foot_y > 1.2 and head_y - foot_y < 2.2, "Unexpected hunter height %s" % (head_y - foot_y))
