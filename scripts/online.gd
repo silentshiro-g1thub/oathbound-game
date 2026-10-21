@@ -173,7 +173,8 @@ func _login(display_name: String) -> bool:
 	if not await HAuth.login_anonymous_async(display_name):
 		last_error = "Epic login failed. Check the client IDs and that this product is published to the sandbox."
 		return false
-	EOSGMultiplayerPeer.set_local_user_id(HAuth.product_user_id)
+	# Connect login sets EOSGMultiplayerPeer's local user id in native code.
+	# set_local_user_id is not bound to GDScript.
 	HP2P.set_relay_control(EOS.P2P.RelayControl.AllowRelays)
 	return true
 
@@ -204,7 +205,6 @@ func _new_p2p_peer() -> MultiplayerPeer:
 	if not ClassDB.class_exists("EOSGMultiplayerPeer"):
 		last_error = "EOSGMultiplayerPeer is missing."
 		return null
-	EOSGMultiplayerPeer.set_local_user_id(HAuth.product_user_id)
 	return ClassDB.instantiate("EOSGMultiplayerPeer")
 
 
