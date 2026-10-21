@@ -74,7 +74,7 @@ func _respawn() -> void:
 	player.position = Vector3(0, 0.05, 12)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_BACKSPACE:
 		_respawn()
 
 func _process(_delta: float) -> void:
@@ -82,7 +82,8 @@ func _process(_delta: float) -> void:
 		_respawn()
 	var developer_overlay := player.get_node_or_null("DeveloperOverlay")
 	status.visible = developer_overlay == null or not developer_overlay.panel.visible
-	status.text = "MOVEMENT PRACTICE | R: reset | F3: developer overlay\nEsc: release mouse | Click: recapture\nWASD: move | Shift: sprint | Ctrl: crouch/slide | WASD+Q: dash | Space: jumps\nState: %s | Speed: %.1f m/s | Extra jump: %d | Dash ready in: %.2fs\nCrouched: %s" % [
-		player.MovementState.keys()[player.movement_state], player._horizontal_velocity().length(),
+	status.text = "MOVEMENT PRACTICE | Backspace: reset | R: reload | F3: developer overlay\nEsc: release mouse | Click: recapture\nWASD: move | Shift: sprint | Ctrl: crouch/slide | WASD+Q: dash | Space: jumps | RMB: aim\nState: %s | Clip: %s | Speed: %.1f m/s | Extra jump: %d | Dash ready in: %.2fs\nCrouched: %s" % [
+		player.MovementState.keys()[player.movement_state], player.clip_from_id(player.body_clip),
+		player._horizontal_velocity().length(),
 		player.extra_jumps_remaining, player.dash_cooldown_remaining,
 		player.is_crouched]

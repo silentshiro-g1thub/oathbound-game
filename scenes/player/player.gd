@@ -77,6 +77,15 @@ var dash_launch_speed: float = 0.0
 var air_dash_available: bool = true
 
 var extra_jumps_remaining: int = 1
+## Replicated by MultiplayerSynchronizer. Direct and relay peers play the same clip.
+const BODY_CLIPS: PackedStringArray = [
+	"Idle", "ADS", "Hipfire", "ADS_Fire", "Reload", "Sprint", "Crouch", "Crouch_Walk",
+	"Slide", "Dash", "Walk_Forward", "Walk_Back", "Walk_Left", "Walk_Right",
+	"Walk_ForwardLeft", "Walk_ForwardRight", "Walk_BackLeft", "Walk_BackRight",
+]
+var body_clip: int = 0
+var body_token: int = 0
+var _body_lock_until: float = 0.0
 var viewmodel_follow := 1.0
 var weapon_menu_open := false
 var rifle_owned := false
@@ -119,12 +128,20 @@ func _enter_tree():
 func _ready() -> void:
 	if not is_multiplayer_authority():
 		# Remote copies must not collide with or simulate alongside the local player.
+		# Their first-person gun stays hidden; the replicated hunter body is the model.
 		collision_layer = 0
 		collision_mask = 0
 		set_physics_process(false)
+		var mount := get_node_or_null("Head/Camera3D/WeaponMount")
+		if mount:
+			mount.visible = false
 		return
 
 	camera.current = true
+	camera.position = Vector3(0.55, 0.35, 2.5)
+	var local_mount := get_node_or_null("Head/Camera3D/WeaponMount")
+	if local_mount:
+		local_mount.visible = false
 	var terrain := get_parent().find_child("Terrain3D", true, false)
 	if terrain and terrain.has_method("set_camera"):
 		terrain.set_camera(camera)
@@ -208,6 +225,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key == KEY_1 and Input.is_physical_key_pressed(KEY_F3):
 			spawn_dummy.rpc(_dummy_spawn_position())
 			return
+		if key == KEY_R and not weapon_menu_open:
+			_lock_body("Reload", 2.8)
+			get_viewport().set_input_as_handled()
+			return
 		if weapon_menu_open:
 			if key == KEY_1:
 				select_weapon_slot(1)
@@ -271,7 +292,8 @@ func _physics_process(delta: float) -> void:
 
 	## Handles headbobbing
 	t_bob += delta * velocity.length() * float(is_on_floor())
-	camera.transform.origin = _headbob(t_bob)
+	# Sit behind the hunter so the body clips are on screen. +Z is behind the look direction.
+	camera.position = Vector3(0.55, 0.35, 2.5) + _headbob(t_bob)
 
 	var input_dir := Vector2.ZERO
 
@@ -295,6 +317,7 @@ func _physics_process(delta: float) -> void:
 
 	if movement_state == MovementState.DASHING:
 		_move_dash(delta)
+		_apply_body_action()
 		return
 
 	_update_jump(delta)
@@ -313,6 +336,7 @@ func _physics_process(delta: float) -> void:
 		movement_state = MovementState.AIRBORNE
 		if is_on_floor():
 			movement_state = MovementState.SPRINTING if sprinting and not is_crouched else MovementState.GROUNDED
+	_apply_body_action()
 
 
 ## Advance cooldowns, refresh airborne abilities on landing, and buffer jump presses.
@@ -350,6 +374,7 @@ func _update_crouch_and_slide() -> void:
 	):
 		movement_state = MovementState.SLIDING
 		slide_remaining = slide_duration
+		_lock_body("Slide", slide_duration)
 		if slide_boost_cooldown_remaining <= 0.0:
 			var speed := _horizontal_velocity().length()
 			var boosted := maxf(speed, minf(speed + slide_entry_boost, sprint_speed + slide_entry_boost))
@@ -446,6 +471,7 @@ func _move_horizontal(direction: Vector3, sprinting: bool, delta: float) -> void
 
 ## Resize the capsule and lower the camera immediately when crouching.
 func _set_crouched(value: bool) -> void:
+	var entering := value and not is_crouched
 	is_crouched = value
 
 	var capsule := body_collision.shape as CapsuleShape3D
@@ -454,6 +480,8 @@ func _set_crouched(value: bool) -> void:
 
 	if value:
 		head.position.y = standing_head_height - (standing_height - crouch_height)
+	if entering and movement_state != MovementState.SLIDING:
+		_lock_body("Crouch", 0.4)
 
 
 ## Check whether the standing capsule fits without hitting overhead geometry.
@@ -510,6 +538,7 @@ func _start_dash(direction: Vector3) -> void:
 	dash_cooldown_remaining = dash_cooldown
 	coyote_remaining = 0.0
 	movement_state = MovementState.DASHING
+	_lock_body("Dash", 0.67)
 
 
 ## Move the dash once, stop on blocking collisions or timeout, and preserve exit momentum.
@@ -542,6 +571,7 @@ func _process(delta: float) -> void:
 	if is_multiplayer_authority():
 		var eye_height := standing_head_height - (standing_height - crouch_height) if is_crouched else standing_head_height
 		head.position.y = move_toward(head.position.y, eye_height, camera_height_speed * delta)
+		_update_body_clip()
 
 
 func _shot_anim_active() -> bool:
@@ -579,6 +609,100 @@ func spawn_dummy(spawn_position: Vector3) -> void:
 @rpc("authority", "call_local")
 func play_shoot_effects() -> void:
 	_fire_active_weapon()
+	if is_multiplayer_authority():
+		_lock_body("ADS_Fire" if _is_aiming() else "Hipfire", 0.5)
+
+
+func clip_from_id(clip_id: int) -> String:
+	if clip_id < 0 or clip_id >= BODY_CLIPS.size():
+		return "Idle"
+	return BODY_CLIPS[clip_id]
+
+
+func _update_body_clip() -> void:
+	_apply_body_action()
+
+
+## Pick the clip for the action that is happening right now and start it on the hunter.
+func _apply_body_action() -> void:
+	if Time.get_ticks_msec() / 1000.0 >= _body_lock_until:
+		_set_body_clip(_choose_body_clip(), false)
+	var body := get_node_or_null("HunterBody")
+	if body and body.has_method("play_clip"):
+		body.play_clip(clip_from_id(body_clip), false)
+
+
+func _choose_body_clip() -> String:
+	if movement_state == MovementState.SLIDING:
+		return "Slide"
+	if is_crouched:
+		if _move_wish().length() > 0.2:
+			return "Crouch_Walk"
+		return "Crouch"
+	if movement_state == MovementState.SPRINTING:
+		return "Sprint"
+	if movement_state == MovementState.AIRBORNE:
+		return "Idle"
+	var wish := _move_wish()
+	if wish.length() > 0.2 and movement_state == MovementState.GROUNDED:
+		return _walk_clip(wish)
+	if _is_aiming():
+		return "ADS"
+	return "Idle"
+
+
+func _move_wish() -> Vector2:
+	if not controls_active:
+		return Vector2.ZERO
+	return Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+
+
+func _walk_clip(wish: Vector2) -> String:
+	var forward := -wish.y
+	var right := wish.x
+	var forward_step := 1 if forward > 0.35 else (-1 if forward < -0.35 else 0)
+	var right_step := 1 if right > 0.35 else (-1 if right < -0.35 else 0)
+	if forward_step == 1 and right_step == 0:
+		return "Walk_Forward"
+	if forward_step == -1 and right_step == 0:
+		return "Walk_Back"
+	if forward_step == 0 and right_step == -1:
+		return "Walk_Left"
+	if forward_step == 0 and right_step == 1:
+		return "Walk_Right"
+	if forward_step == 1 and right_step == -1:
+		return "Walk_ForwardLeft"
+	if forward_step == 1 and right_step == 1:
+		return "Walk_ForwardRight"
+	if forward_step == -1 and right_step == -1:
+		return "Walk_BackLeft"
+	if forward_step == -1 and right_step == 1:
+		return "Walk_BackRight"
+	return "Walk_Forward"
+
+
+func _is_aiming() -> bool:
+	return controls_active and not weapon_menu_open and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and movement_state != MovementState.SPRINTING
+
+
+func _set_body_clip(clip_name: String, restart: bool) -> void:
+	var index := BODY_CLIPS.find(clip_name)
+	if index < 0:
+		index = 0
+	if restart:
+		body_token += 1
+		body_clip = index
+		return
+	if body_clip != index:
+		body_clip = index
+
+
+func _lock_body(clip_name: String, seconds: float) -> void:
+	_body_lock_until = Time.get_ticks_msec() / 1000.0 + seconds
+	_set_body_clip(clip_name, true)
+	var body := get_node_or_null("HunterBody")
+	if body and body.has_method("play_clip"):
+		body.play_clip(clip_name, true)
 
 
 func give_rifle() -> void:

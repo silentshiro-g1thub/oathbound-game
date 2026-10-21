@@ -8,6 +8,8 @@
 [ext_resource type="Script" uid="uid://dg7c2ts5pr0ko" path="res://scenes/weapons/revolver.gd" id="8_revolver"]
 [ext_resource type="Script" path="res://scenes/player/weapon_mount.gd" id="9_sway"]
 [ext_resource type="PackedScene" path="res://scenes/weapons/bagyo.tscn" id="10_bagyo"]
+[ext_resource type="Script" path="res://scenes/player/hunter_body.gd" id="11_hunter_script"]
+[ext_resource type="PackedScene" path="res://assets/characters/hunter_bagyo.glb" id="12_hunter"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sgp6g"]
 radius = 0.35
@@ -140,10 +142,22 @@ properties/1/replication_mode = 1
 properties/2/path = NodePath("Head/Camera3D:rotation")
 properties/2/spawn = true
 properties/2/replication_mode = 1
+properties/3/path = NodePath(".:body_clip")
+properties/3/spawn = true
+properties/3/replication_mode = 2
+properties/4/path = NodePath(".:body_token")
+properties/4/spawn = true
+properties/4/replication_mode = 2
 
 [node name="Player" type="CharacterBody3D" unique_id=299842047]
 script = ExtResource("1_player")
 active_weapon_path = NodePath("Head/Camera3D/WeaponMount/Manurhin MR93/RevolverController")
+
+[node name="HunterBody" type="Node3D" parent="."]
+script = ExtResource("11_hunter_script")
+
+[node name="Model" parent="HunterBody" instance=ExtResource("12_hunter")]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1565333687]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
