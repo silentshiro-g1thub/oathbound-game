@@ -4,6 +4,7 @@
 [ext_resource type="Terrain3DAssets" uid="uid://uk3u5yeldjap" path="res://new_terrain_3d_assets.tres" id="1_sugp2"]
 [ext_resource type="Texture2D" uid="uid://y8cvu247fh4l" path="res://assets/prototype_textures/crosshair.png" id="1_tbgi4"]
 [ext_resource type="Texture2D" uid="uid://dwcffe7jx6ply" path="res://assets/prototype_textures/crosshair hit.png" id="2_tefeu"]
+[ext_resource type="Script" path="res://scenes/flag/flag_match.gd" id="3_flags"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_o5qli"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -199,6 +200,9 @@ text = "Start"
 [node name="LeaveButton" type="Button" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Leave"
+
+[node name="FlagMatch" type="Node3D" parent="."]
+script = ExtResource("3_flags")
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]
 _spawnable_scenes = PackedStringArray("uid://vq0ffduaoidq")

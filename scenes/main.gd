@@ -9,6 +9,7 @@ extends Node3D
 @onready var start_button = $CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer/StartButton
 
 const Player = preload("res://scenes/player/player.tscn")
+const FlagRules = preload("res://scenes/flag/flag_rules.gd")
 const SPAWN_SPACING: float = 2.0
 var enet_peer = ENetMultiplayerPeer.new()
 var connection_status: Label
@@ -75,6 +76,7 @@ func _on_start_button_pressed() -> void:
 	main_menu.hide()
 	lobby_panel.hide()
 	multiplayer.multiplayer_peer = peer
+	$FlagMatch.adopt_server()
 	if not multiplayer.peer_connected.is_connected(add_player):
 		multiplayer.peer_connected.connect(add_player)
 	add_player(multiplayer.get_unique_id())
@@ -86,6 +88,7 @@ func _on_start_button_pressed() -> void:
 func _on_leave_button_pressed() -> void:
 	await Online.leave_lobby()
 	multiplayer.multiplayer_peer = null
+	_reset_match_flags()
 	lobby_panel.hide()
 	main_menu.show()
 	connection_status.text = ""
@@ -161,6 +164,7 @@ func _process(delta: float) -> void:
 
 
 func _on_connected_to_server() -> void:
+	$FlagMatch.adopt_server()
 	if joining:
 		join_elapsed = 0.0
 		connection_status.text = "Connected. Waiting for your player..."
@@ -174,7 +178,19 @@ func _set_join_buttons_disabled(disabled: bool) -> void:
 func add_player(peer_id):
 	var player = Player.instantiate()
 	player.name = str(peer_id)
-	player.position = Vector3((get_child_count() % 8) * SPAWN_SPACING, 2.0, 0)
+	var reds := 0
+	var blues := 0
+	for child in get_children():
+		if child.is_in_group("players"):
+			if child.team == FlagRules.Team.RED:
+				reds += 1
+			elif child.team == FlagRules.Team.BLUE:
+				blues += 1
+	var team: int = FlagRules.Team.RED if reds <= blues else FlagRules.Team.BLUE
+	player.team = team
+	var slot := reds if team == FlagRules.Team.RED else blues
+	var toward_center := 4.0 if team == FlagRules.Team.RED else -4.0
+	player.position = $FlagMatch.home_for(team) + Vector3(toward_center, 2.5, float(slot) * SPAWN_SPACING)
 	add_child(player)
 
 
@@ -185,6 +201,7 @@ func _on_connection_failed() -> void:
 
 
 func _show_connection_error(message: String) -> void:
+	_reset_match_flags()
 	joining = false
 	_match_connecting = false
 	_set_join_buttons_disabled(false)
@@ -218,6 +235,11 @@ func _on_server_disconnected() -> void:
 func _on_kicked_from_lobby() -> void:
 	multiplayer.multiplayer_peer = null
 	_show_connection_error("The host closed the lobby.")
+
+
+func _reset_match_flags() -> void:
+	if has_node("FlagMatch"):
+		$FlagMatch.reset_flags()
 
 
 func _display_name() -> String:
