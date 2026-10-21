@@ -136,22 +136,69 @@ theme_override_constants/separation = 15
 
 [node name="Label" type="Label" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1453998916]
 layout_mode = 2
-text = "Oathbound"
+text = "Main Menu"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="NameEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "Display name"
+alignment = 1
 
 [node name="Button" type="Button" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1562118403]
 layout_mode = 2
 text = "Host"
 
+[node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
+layout_mode = 2
+placeholder_text = "Join code"
+alignment = 1
+max_length = 6
+
 [node name="Button2" type="Button" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1976433115]
 layout_mode = 2
 text = "Join"
 
-[node name="LineEdit" type="LineEdit" parent="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer" unique_id=1745180913]
+[node name="LobbyPanel" type="PanelContainer" parent="CanvasLayer"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 414.0
+offset_top = 223.0
+offset_right = -414.0
+offset_bottom = -223.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LobbyPanel"]
 layout_mode = 2
-placeholder_text = "Room code"
-alignment = 1
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LobbyPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="CodeLabel" type="Label" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Code:"
+horizontal_alignment = 1
+
+[node name="PlayersLabel" type="Label" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Crew:"
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Start"
+
+[node name="LeaveButton" type="Button" parent="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Leave"
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1561195446]
 _spawnable_scenes = PackedStringArray("uid://vq0ffduaoidq")
@@ -159,3 +206,5 @@ spawn_path = NodePath("..")
 
 [connection signal="pressed" from="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button" to="." method="_on_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/PanelContainer/MarginContainer/VBoxContainer/Button2" to="." method="_on_button_2_pressed"]
+[connection signal="pressed" from="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer/StartButton" to="." method="_on_start_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/LobbyPanel/MarginContainer/VBoxContainer/LeaveButton" to="." method="_on_leave_button_pressed"]

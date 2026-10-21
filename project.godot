@@ -15,10 +15,32 @@ run/main_scene="uid://cfnel0kfbafxs"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+EOSGRuntime="*uid://7saywdx0ipep"
+HPlatform="*uid://yl2muvqrdiud"
+HAuth="*uid://786t1jiowvvg"
+HAchievements="*uid://bis404dty5u5c"
+HFriends="*uid://uumqbey8ji5t"
+HStats="*uid://dbckdip83oone"
+HLeaderboards="*uid://b06khhf20mplm"
+HLobbies="*uid://6iqvm33q0tb1"
+HP2P="*uid://u6ae5fpm6l8q"
+HSessions="*uid://bieh2rxxahuu2"
+Online="*res://scripts/online.gd"
+
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/epic-online-services-godot/plugin.cfg")
+
+[gui]
+
+theme/custom_font="res://assets/fonts/SourceSans3-Regular.ttf"
 
 [input]
 

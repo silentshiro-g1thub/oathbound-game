@@ -59,6 +59,7 @@ func _box(at: Vector3, size: Vector3, color: Color) -> StaticBody3D:
 func _label(text: String, at: Vector3) -> void:
 	var label := Label3D.new()
 	label.text = text
+	label.font = preload("res://assets/fonts/SourceSans3-Regular.ttf")
 	label.font_size = 36
 	label.pixel_size = 0.012
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

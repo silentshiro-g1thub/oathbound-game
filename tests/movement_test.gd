@@ -362,16 +362,7 @@ func test_physics_rates() -> void:
 func test_main_scene() -> void:
 	var main := load("res://scenes/main.tscn").instantiate() as Node3D
 	root.add_child(main)
-	# The arena spawns players through the room system, so give it one local
-	# player and a multiplayer peer, the same way hosting does in the game.
-	main.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-	main.add_player(1)
-	var actor := main.get_node_or_null("1") as CharacterBody3D
-	check(actor != null, "main scene spawns its local player through the room script")
-	if actor == null:
-		main.multiplayer.multiplayer_peer = null
-		main.free()
-		return
+	var actor := main.get_node("Player") as CharacterBody3D
 	actor.set_physics_process(false)
 	var weapon: Node = actor.active_weapon
 	check(weapon != null and weapon.has_method("try_fire"), "equipped revolver loads its firing script from its current path")
@@ -408,7 +399,6 @@ func test_main_scene() -> void:
 	check(not actor.active_weapon.revolver_sfx.playing, "shot rejected during recoil cannot trigger audio")
 	await create_timer(0.15).timeout
 	check(not actor.active_weapon.muzzle_flash.visible, "muzzle flash expires")
-	main.multiplayer.multiplayer_peer = null
 	main.free()
 
 func test_launch_changes() -> void:

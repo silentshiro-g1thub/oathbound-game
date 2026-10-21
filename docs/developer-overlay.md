@@ -25,6 +25,6 @@ Basic mode shows FPS, average frame duration derived from FPS, ping/packet-loss 
 
 The background is fully transparent. Amber text uses 92% opacity and a dark outline for contrast. The practice-scene instructions hide while either developer mode is visible to avoid overlapping the top-left readout.
 
-Ping and packet loss show N/A (offline) while using offline multiplayer. A connected peer without a measurement provider shows N/A (not measured). When a room code is active, that code is shown beside the same N/A readings. No fabricated ping or packet-loss numbers are introduced.
+Ping and packet loss show N/A (offline) while using offline multiplayer. A connected peer without a measurement provider shows N/A (not measured). No networking or fabricated metrics have been introduced.
 
 Mode-cycle validation passed in headless Godot, including basic/advanced content, top-left alignment, transparent background, fitting a 400×300 viewport, idle state, and independent logging. Visual readability still requires a windowed check.

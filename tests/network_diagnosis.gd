@@ -12,12 +12,16 @@ func run():
 	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	if mode == "host":
-		main.host_room(19999, "TESTAB", false)
+		main.enet_peer = ENetMultiplayerPeer.new()
+		assert(main.enet_peer.create_server(19999) == OK)
+		main.multiplayer.multiplayer_peer = main.enet_peer
+		main.multiplayer.peer_connected.connect(main.add_player)
+		main.add_player(1)
 	else:
-		main.join_direct_url = "ws://127.0.0.1:19999"
-		main.code_entry.text = "TESTAB"
-		main._on_button_2_pressed()
-	await create_timer(3.0).timeout
+		main.enet_peer = ENetMultiplayerPeer.new()
+		assert(main.enet_peer.create_client("127.0.0.1", 19999) == OK)
+		main.multiplayer.multiplayer_peer = main.enet_peer
+	await create_timer(1.5).timeout
 	var local = main.get_node_or_null(str(main.multiplayer.get_unique_id()))
 	assert(local != null)
 	assert(main.multiplayer.get_peers().size() == 1)
