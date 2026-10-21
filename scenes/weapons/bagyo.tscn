@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/weapons/bagyo.gd" id="1_bagyo"]
+[ext_resource type="PackedScene" uid="uid://dgvavewqqs1ys" path="res://assets/weapon_models/bagyo_gun.glb" id="2_gun"]
+[ext_resource type="AudioStream" path="res://assets/audio/gunshot.mp3" id="3_shot"]
+
+[node name="Bagyo" type="Node3D"]
+script = ExtResource("1_bagyo")
+
+[node name="Model" parent="." instance=ExtResource("2_gun")]
+
+[node name="Muzzle" type="OmniLight3D" parent="Model"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.22, 0.08, 0)
+light_color = Color(1, 0.72, 0.28, 1)
+light_energy = 8.0
+omni_range = 2.5
+visible = false
+
+[node name="Gunshot" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("3_shot")
+volume_db = 3.0
+pitch_scale = 0.58
+unit_size = 4.0
+max_distance = 48.0
+attenuation_model = 3
+autoplay = false
